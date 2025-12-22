@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a browser-based chess game implemented as a single HTML file (`chess.html`) with embedded CSS and JavaScript. The game features:
+This is a browser-based chess game implemented as a single HTML file (`index.html`) with embedded CSS and JavaScript. The game features:
 - Full chess rules implementation (castling, en passant, pawn promotion, 50-move rule, threefold repetition)
 - AI opponent using minimax algorithm with alpha-beta pruning
 - Three game modes: Player vs Player, Player vs AI, AI vs AI (watch mode)
@@ -13,13 +13,13 @@ This is a browser-based chess game implemented as a single HTML file (`chess.htm
 
 ## Running the Application
 
-Simply open `chess.html` in any modern web browser. No build process, server, or dependencies required.
+Simply open `index.html` in any modern web browser. No build process, server, or dependencies required.
 
 ## Architecture
 
 ### Single-File Structure
 
-The entire application is contained in `chess.html` with three main sections:
+The entire application is contained in `index.html` with three main sections:
 
 1. **CSS (lines 7-502)**: All styling including board layout, pieces, animations, dialogs
 2. **HTML (lines 504-625)**: DOM structure for board, sidebar panels, dialogs, overlays
@@ -93,6 +93,14 @@ Search depth controls difficulty:
 - Depth 4: Hard (looks 4 moves ahead)
 
 Opening book (lines 657-675) provides variety in the first few moves.
+
+## Chess Piece Rendering
+
+Pieces are displayed using Unicode chess characters with enhanced styling:
+- White pieces have black outline with drop shadow for visibility on light squares
+- Black pieces have white outline for visibility on dark squares
+- Font stack includes 'Segoe UI Symbol' and 'DejaVu Sans' for best cross-platform rendering
+- `.piece.white` and `.piece.black` CSS classes control the styling
 
 ## Modifying the Game
 
