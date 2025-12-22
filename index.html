@@ -32,6 +32,90 @@
             margin-bottom: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             letter-spacing: 2px;
+            position: relative;
+        }
+
+        .info-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .info-button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+
+        .info-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            z-index: 1001;
+            display: none;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .info-dialog.show {
+            display: block;
+        }
+
+        .info-dialog h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .info-dialog h3 {
+            color: #764ba2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .info-dialog p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .info-dialog ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+
+        .info-dialog li {
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .info-content {
+            margin-bottom: 20px;
+        }
+
+        .info-dialog button {
+            width: 100%;
+            margin-top: 10px;
         }
 
         .container {
@@ -569,6 +653,34 @@
         <div class="promotion-pieces" id="promotionPieces"></div>
     </div>
 
+    <div class="info-dialog" id="infoDialog">
+        <h2>How coolChess Works</h2>
+        <div class="info-content">
+            <h3>Minimax Algorithm</h3>
+            <p>The AI uses the minimax algorithm with alpha-beta pruning to evaluate moves.</p>
+            <p>The algorithm works by:</p>
+            <ul>
+                <li>Generating all possible legal moves from the current position</li>
+                <li>For each move, simulating the opponent's best response</li>
+                <li>Recursively evaluating positions to a specified depth</li>
+                <li>Scoring positions based on material count and piece positioning</li>
+                <li>Selecting the move that maximizes the AI's position while minimizing yours</li>
+            </ul>
+            <p>Difficulty levels control search depth. Higher depth means the AI evaluates more moves ahead but takes longer to compute. Depth 1 evaluates only immediate moves. Depth 4 searches four moves into the future.</p>
+
+            <h3>Opening Book</h3>
+            <p>The first 2-3 moves use a pre-programmed opening book instead of calculation.</p>
+            <p>Programmed moves:</p>
+            <ul>
+                <li>White's first move: 4 options (e4, d4, c3, Nf3)</li>
+                <li>Black's response to e4: 4 options (e5, c5, e6, c6)</li>
+                <li>Black's response to d4: 3 options (d5, Nf6, f6)</li>
+            </ul>
+            <p>Total: 11 pre-programmed moves. The AI randomly selects from available options.</p>
+        </div>
+        <button onclick="closeInfo()">Close</button>
+    </div>
+
     <div class="container">
         <div class="board-container">
             <div class="board-wrapper">
@@ -620,7 +732,10 @@
         </div>
 
         <div class="sidebar">
-            <div class="sidebar-title">coolChess</div>
+            <div class="sidebar-title">
+                coolChess
+                <button class="info-button" onclick="showInfo()" title="How it works">ℹ️</button>
+            </div>
 
             <div class="panel">
                 <h2>Game Status</h2>
@@ -1918,6 +2033,16 @@
             updateCapturedPieces();
             updateEvaluationBar();
             updateMoveCounter();
+        }
+
+        function showInfo() {
+            document.getElementById('overlay').classList.add('show');
+            document.getElementById('infoDialog').classList.add('show');
+        }
+
+        function closeInfo() {
+            document.getElementById('overlay').classList.remove('show');
+            document.getElementById('infoDialog').classList.remove('show');
         }
 
         function setMode(mode) {
