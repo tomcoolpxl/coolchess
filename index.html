@@ -2438,10 +2438,10 @@
             const originalPlayer = currentPlayer;
 
             currentPlayer = 'white';
-            const whiteMoves = getAllLegalMoves('white').length;
+            whiteMoves = getAllLegalMoves('white').length;
 
             currentPlayer = 'black';
-            const blackMoves = getAllLegalMoves('black').length;
+            blackMoves = getAllLegalMoves('black').length;
 
             currentPlayer = originalPlayer;
             score += (whiteMoves - blackMoves) * 10;
