@@ -246,6 +246,14 @@
             pointer-events: none;
         }
 
+        .piece-white {
+            color: #ffffff !important;
+        }
+
+        .piece-black {
+            color: #000000 !important;
+        }
+
         .sidebar {
             display: flex;
             flex-direction: column;
@@ -1122,7 +1130,7 @@
         <div class="mobile-header-top">
             <button class="mobile-menu-btn" onclick="openMobileMenu()" aria-label="Open menu">☰</button>
             <div class="mobile-title">coolChess</div>
-            <button class="mobile-info-btn" onclick="showInfo()" aria-label="Show information about how the AI works">info</button>
+            <button class="mobile-info-btn" onclick="showInfo()" aria-label="Show information about how the AI works">i</button>
         </div>
         <div class="mobile-status-bar">
             <div class="status" id="mobileStatus">White's Turn</div>
@@ -1187,7 +1195,7 @@
         <div class="sidebar">
             <div class="sidebar-title">
                 coolChess
-                <button class="info-button" onclick="showInfo()" title="How it works" aria-label="Show information about how the AI works">info</button>
+                <button class="info-button" onclick="showInfo()" title="How it works" aria-label="Show information about how the AI works">i</button>
             </div>
 
             <div class="panel">
@@ -1262,7 +1270,7 @@
     <script>
         // Chess pieces Unicode characters
         const PIECES = {
-            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟',
             'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
         };
 
@@ -1379,7 +1387,8 @@
                     const piece = board[row][col];
                     if (piece) {
                         const pieceSpan = document.createElement('span');
-                        pieceSpan.className = 'piece';
+                        const isWhitePiece = piece === piece.toUpperCase();
+                        pieceSpan.className = isWhitePiece ? 'piece piece-white' : 'piece piece-black';
                         pieceSpan.textContent = PIECES[piece];
                         square.appendChild(pieceSpan);
                     }
