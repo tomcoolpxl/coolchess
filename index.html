@@ -638,7 +638,9 @@
 
             body {
                 padding: 0;
-                align-items: flex-start;
+                display: block;
+                min-height: 100vh;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             }
 
             /* Hide sidebar completely */
@@ -793,28 +795,50 @@
 
             /* Container */
             .container {
-                grid-template-columns: 1fr;
-                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                padding: 0;
                 width: 100%;
                 max-width: 100%;
                 margin: 0;
+                background: transparent;
+                box-shadow: none;
+                border-radius: 0;
             }
 
-            /* Board scaling */
+            /* Board container */
+            .board-container {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 15px 10px;
+                background: white;
+                border-radius: 0;
+            }
+
+            /* Board scaling - smaller for phones */
             .board-wrapper {
-                gap: 5px;
+                gap: 3px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .board-with-coords {
+                position: relative;
             }
 
             .chessboard {
-                grid-template-columns: repeat(8, 40px);
-                grid-template-rows: repeat(8, 40px);
+                grid-template-columns: repeat(8, 36px);
+                grid-template-rows: repeat(8, 36px);
                 border: 2px solid #333;
             }
 
             .square {
-                width: 40px;
-                height: 40px;
-                font-size: 28px;
+                width: 36px;
+                height: 36px;
+                font-size: 26px;
             }
 
             .square:hover {
@@ -825,46 +849,53 @@
                 opacity: 0.8;
             }
 
-            /* Evaluation bar */
+            /* Evaluation bar - narrower on mobile */
             .evaluation-bar {
-                width: 20px;
-                height: 320px;
+                width: 15px;
+                height: 288px;
                 border: 1px solid #333;
             }
 
             .eval-text {
-                font-size: 8px;
-                padding: 2px 3px;
+                font-size: 7px;
+                padding: 2px;
+                writing-mode: vertical-rl;
+            }
+
+            /* Adjust W/B labels for mobile */
+            .board-wrapper > div[style*="position: relative"] > div[style*="position: absolute"] {
+                font-size: 9px !important;
+                left: -22px !important;
             }
 
             /* Coordinates */
             .coord-label {
-                font-size: 9px;
+                font-size: 8px;
             }
 
             .coord-file {
-                bottom: -18px;
+                bottom: -16px;
             }
 
             .coord-rank {
-                left: -18px;
+                left: -16px;
             }
 
             /* Move arrow */
             .move-arrow-svg {
-                width: 320px;
-                height: 320px;
+                width: 288px;
+                height: 288px;
             }
 
             /* Legal move indicators */
             .square.legal-move::after {
-                width: 12px;
-                height: 12px;
+                width: 10px;
+                height: 10px;
             }
 
             .square.legal-capture::after {
-                width: 34px;
-                height: 34px;
+                width: 30px;
+                height: 30px;
                 border: 2px solid rgba(0,0,0,0.4);
             }
 
@@ -873,6 +904,10 @@
                 grid-template-columns: 1fr;
                 gap: 10px;
                 margin-top: 15px;
+                width: 100%;
+                max-width: 100%;
+                padding: 0 5px;
+                box-sizing: border-box;
             }
 
             .control-section {
