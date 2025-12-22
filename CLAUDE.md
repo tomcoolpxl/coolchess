@@ -9,7 +9,9 @@ This is a browser-based chess game implemented as a single HTML file (`index.htm
 - AI opponent using minimax algorithm with alpha-beta pruning
 - Three game modes: Player vs Player, Player vs AI, AI vs AI (watch mode)
 - Position evaluation with visual evaluation bar
-- Opening book for common opening moves
+- Opening book for common opening moves (11 pre-programmed moves)
+- Info dialog explaining how the AI works
+- Smart undo that reverts 2 moves (opponent + yours)
 
 ## Running the Application
 
@@ -21,13 +23,24 @@ Simply open `index.html` in any modern web browser. No build process, server, or
 
 The entire application is contained in `index.html` with three main sections:
 
-1. **CSS (lines 7-502)**: All styling including board layout, pieces, animations, dialogs
-2. **HTML (lines 504-625)**: DOM structure for board, sidebar panels, dialogs, overlays
-3. **JavaScript (lines 627-1882)**: Game logic, AI, rendering
+1. **CSS**: All styling including board layout, pieces, animations, dialogs, info panel
+2. **HTML**: DOM structure with:
+   - Board container with chessboard and evaluation bar
+   - Controls below board (undo, hint, captured pieces)
+   - Sidebar with title, game status, mode selection, AI difficulty, settings
+   - Dialogs (promotion, game over, info)
+3. **JavaScript**: Game logic, AI, rendering, UI controls
+
+### Layout Structure
+
+- **Main Board Area**: 8x8 chessboard with coordinate labels and evaluation bar
+- **Below Board Controls**: Quick actions (undo, hint) and captured pieces display
+- **Sidebar**: Game status, mode selection, AI difficulty settings, new game button
+- **Info Button**: In sidebar title, opens dialog explaining minimax and opening book
 
 ### Core Game State
 
-The game state is managed through global variables (lines 635-654):
+The game state is managed through global variables:
 - `board`: 8x8 array representing the chessboard
 - `currentPlayer`: 'white' or 'black'
 - `gameMode`: 'pvp', 'ai', or 'watch'
@@ -39,50 +52,53 @@ The game state is managed through global variables (lines 635-654):
 
 ### Key Functions
 
-**Game Logic (lines 678-1256)**:
-- `initGame()`: Initialize/reset game state (line 678)
-- `isValidMove()`: Validates if a move is legal (line 932)
-- `isPieceMovementValid()`: Checks piece-specific movement rules (line 965)
-- `makeMove()`: Executes a move and updates state (line 1093)
-- `isInCheck()`: Determines if a player is in check (line 1225)
-- `getAllLegalMoves()`: Generates all legal moves for a player (line 1260)
-- `checkGameOver()`: Detects checkmate, stalemate, draws (line 1286)
+**Game Logic**:
+- `initGame()`: Initialize/reset game state
+- `isValidMove()`: Validates if a move is legal
+- `isPieceMovementValid()`: Checks piece-specific movement rules
+- `makeMove()`: Executes a move and updates state
+- `isInCheck()`: Determines if a player is in check
+- `getAllLegalMoves()`: Generates all legal moves for a player
+- `checkGameOver()`: Detects checkmate, stalemate, draws
 
-**AI System (lines 1458-1763)**:
-- `makeAIMove()`: Entry point for AI move generation (line 1458)
-- `minimax()`: Minimax algorithm with alpha-beta pruning (line 1548)
+**AI System**:
+- `makeAIMove()`: Entry point for AI move generation
+- `minimax()`: Minimax algorithm with alpha-beta pruning
   - White maximizes (isMaximizing=true)
   - Black minimizes (isMaximizing=false)
   - Difficulty levels 1-4 control search depth
-- `evaluateBoard()`: Position evaluation function (line 1636)
+- `evaluateBoard()`: Position evaluation function
   - Material counting with piece values
   - Piece-square tables for positional evaluation
   - Mobility evaluation (number of legal moves)
   - King safety bonuses/penalties
-- `getOpeningBookMove()`: Selects moves from opening book (line 1529)
+- `getOpeningBookMove()`: Selects moves from opening book
 
-**Rendering (lines 717-843)**:
-- `renderBoard()`: Renders the chessboard and pieces (line 717)
-- `drawMoveArrow()`: Draws SVG arrow showing last move (line 780)
-- `highlightLegalMoves()`: Highlights valid moves for selected piece (line 892)
+**Rendering**:
+- `renderBoard()`: Renders the chessboard and pieces
+- `drawMoveArrow()`: Draws SVG arrow showing last move
+- `highlightLegalMoves()`: Highlights valid moves for selected piece
 
-**UI Controls (lines 1789-1878)**:
-- `newGame()`: Start a new game (line 1789)
-- `undoMove()`: Undo the last move (line 1795)
-- `setMode()`: Change game mode (line 1841)
-- `getHint()`: Calculate and display suggested move (line 1766)
+**UI Controls**:
+- `newGame()`: Start a new game
+- `undoMove()`: Undoes 2 moves (opponent + yours) to return to your turn
+- `undoSingleMove()`: Helper that undoes a single move
+- `setMode()`: Change game mode
+- `getHint()`: Calculate and display suggested move
+- `showInfo()`: Opens info dialog explaining how the AI works
+- `closeInfo()`: Closes info dialog
 
 ### Chess Rules Implementation
 
 **Special Moves**:
-- Castling: Validated in `canCastle()` (line 1055), executed in `makeMove()` (line 1141)
-- En passant: Validated in `isPieceMovementValid()` (line 991), executed in `makeMove()` (line 1119)
-- Pawn promotion: Handled with modal dialog in `showPromotionDialog()` (line 1362)
+- Castling: Validated in `canCastle()`, executed in `makeMove()`
+- En passant: Validated in `isPieceMovementValid()`, executed in `makeMove()`
+- Pawn promotion: Handled with modal dialog in `showPromotionDialog()`
 
 **Game Ending Conditions**:
-- Checkmate/Stalemate: Detected by checking if player has no legal moves (line 1316)
-- 50-move rule: Tracked via `halfMoveClock` (line 1293)
-- Threefold repetition: Tracked via `positionHistory` (line 1303)
+- Checkmate/Stalemate: Detected by checking if player has no legal moves
+- 50-move rule: Tracked via `halfMoveClock`
+- Threefold repetition: Tracked via `positionHistory`
 
 ### AI Difficulty Levels
 
@@ -92,35 +108,37 @@ Search depth controls difficulty:
 - Depth 3: Medium (looks 3 moves ahead)
 - Depth 4: Hard (looks 4 moves ahead)
 
-Opening book (lines 657-675) provides variety in the first few moves.
+### Opening Book
+
+The opening book contains 11 pre-programmed moves that randomize for variety:
+- White's first move: 4 options (e4, d4, c3, Nf3)
+- Black's response to e4: 4 options (e5, c5, e6, c6)
+- Black's response to d4: 3 options (d5, Nf6, f6)
 
 ## Chess Piece Rendering
 
-Pieces are displayed using Unicode chess characters with enhanced styling:
-- White pieces have black outline with drop shadow for visibility on light squares
-- Black pieces have white outline for visibility on dark squares
-- Font stack includes 'Segoe UI Symbol' and 'DejaVu Sans' for best cross-platform rendering
-- `.piece.white` and `.piece.black` CSS classes control the styling
+Pieces are displayed using Unicode chess characters (♔♕♖♗♘♙ / ♚♛♜♝♞♟) with simple styling.
 
 ## Modifying the Game
 
 **To adjust AI strength**:
-- Modify piece values in `evaluateBoard()` (line 1637-1640)
-- Adjust piece-square tables (lines 1643-1707)
-- Modify mobility weight (line 1756)
+- Modify piece values in `evaluateBoard()`
+- Adjust piece-square tables
+- Modify mobility weight calculation
 
 **To add new game modes**:
-- Update `setMode()` function (line 1841)
-- Add mode handling in `handleSquareClick()` (line 846)
+- Update `setMode()` function
+- Add mode handling in `handleSquareClick()`
 
 **To customize appearance**:
-- Board colors: `.square.light` and `.square.dark` classes (lines 61-67)
-- Piece size: `.square` font-size (line 55)
-- Highlight colors: `.selected`, `.legal-move` classes (lines 69-96)
+- Board colors: `.square.light` and `.square.dark` classes
+- Piece size: `.square` font-size
+- Highlight colors: `.selected`, `.legal-move` classes
 
 ## Known Behaviors
 
-- AI auto-promotes pawns to queen (line 1509)
-- Move arrows fade after 4 seconds (line 812)
-- AI thinking indicator shows current depth during calculation (line 1488)
-- Position evaluation capped at ±2000 centipawns for display (line 1432)
+- AI auto-promotes pawns to queen
+- Move arrows fade after 4 seconds
+- AI thinking indicator shows current depth during calculation
+- Position evaluation capped at ±2000 centipawns for display
+- Undo reverts 2 moves to return player to their turn

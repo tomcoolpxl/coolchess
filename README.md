@@ -1,4 +1,4 @@
-# coolChess ♟️
+# coolChess
 
 A fully-featured, browser-based chess game with AI opponent powered by minimax algorithm with alpha-beta pruning.
 
@@ -12,8 +12,9 @@ A fully-featured, browser-based chess game with AI opponent powered by minimax a
   - AI vs AI (watch mode)
 - **Position Analysis**: Visual evaluation bar showing game advantage
 - **Opening Book**: Varied opening moves for natural gameplay
-- **Full Undo Support**: Revert moves at any time
-- **Move Hints**: Get suggestions for your next move
+- **Smart Undo**: Reverts two moves (opponent + yours) to get back to your turn
+- **Move Hints**: Get AI suggestions for your next move
+- **Info Dialog**: Explains how the AI works (minimax algorithm and opening book)
 
 ## Quick Start
 
@@ -26,9 +27,10 @@ A fully-featured, browser-based chess game with AI opponent powered by minimax a
 - **Select a Piece**: Click on any of your pieces to see legal moves highlighted in green
 - **Make a Move**: Click on a highlighted square to move your piece
 - **Promote a Pawn**: Choose a piece when your pawn reaches the last rank
-- **Undo**: Click "Undo" to reverse the last move
-- **Get Hint**: Click "Hint" to see AI's recommended move
-- **Change Mode**: Select game mode (PvP, PvAI, AI vs AI) from the sidebar
+- **Undo Move**: Reverts opponent's move and your move (below board)
+- **Get Hint**: AI suggests best move for current position (below board)
+- **Change Mode**: Select game mode from sidebar (PvP, PvAI, AI vs AI)
+- **View Info**: Click the info button in the title to learn how the AI works
 
 ## Game Modes
 
