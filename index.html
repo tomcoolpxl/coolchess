@@ -1038,12 +1038,16 @@
             }
 
             /* Force piece colors on mobile */
-            .piece-white {
+            .square .piece.piece-white,
+            span.piece.piece-white {
                 color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
             }
 
-            .piece-black {
+            .square .piece.piece-black,
+            span.piece.piece-black {
                 color: #000000 !important;
+                -webkit-text-fill-color: #000000 !important;
             }
         }
     </style>
