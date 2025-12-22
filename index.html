@@ -1030,7 +1030,7 @@
     <div class="game-over" id="gameOver">
         <h2 id="gameOverTitle">Game Over</h2>
         <p id="gameOverMessage"></p>
-        <button onclick="newGame()">New Game</button>
+        <button onclick="newGame()" aria-label="Start a new game">New Game</button>
     </div>
 
     <div class="promotion-dialog" id="promotionDialog">
@@ -1071,14 +1071,14 @@
         <div class="mobile-menu-content">
             <h3>Game Mode</h3>
             <div class="mode-buttons">
-                <button onclick="setMode('pvp'); closeMobileMenu()">Player vs Player</button>
-                <button onclick="setMode('ai'); closeMobileMenu()">Player vs AI</button>
+                <button onclick="setMode('pvp'); closeMobileMenu()" aria-label="Play against another human player">Player vs Player</button>
+                <button onclick="setMode('ai'); closeMobileMenu()" aria-label="Play against the AI">Player vs AI</button>
             </div>
-            <button onclick="setMode('watch'); closeMobileMenu()" style="margin-top: 10px;">Watch AI vs AI</button>
+            <button onclick="setMode('watch'); closeMobileMenu()" style="margin-top: 10px;" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
 
             <h3 style="margin-top: 20px;">AI Difficulty</h3>
             <div id="mobileSingleAIDifficulty">
-                <select id="mobileDifficulty" onchange="updateDifficulty(); syncDifficultySelects()">
+                <select id="mobileDifficulty" onchange="updateMobileDifficulty()">
                     <option value="1">Beginner (Depth 1)</option>
                     <option value="2" selected>Easy (Depth 2)</option>
                     <option value="3">Medium (Depth 3)</option>
@@ -1088,7 +1088,7 @@
             <div id="mobileWatchAIDifficulty" style="display: none;">
                 <div style="margin-bottom: 10px;">
                     <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">White AI:</label>
-                    <select id="mobileDifficultyWhite" onchange="updateDifficultyWhite(); syncDifficultySelects()">
+                    <select id="mobileDifficultyWhite" onchange="updateMobileDifficultyWhite()">
                         <option value="1">Beginner (Depth 1)</option>
                         <option value="2" selected>Easy (Depth 2)</option>
                         <option value="3">Medium (Depth 3)</option>
@@ -1097,7 +1097,7 @@
                 </div>
                 <div>
                     <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">Black AI:</label>
-                    <select id="mobileDifficultyBlack" onchange="updateDifficultyBlack(); syncDifficultySelects()">
+                    <select id="mobileDifficultyBlack" onchange="updateMobileDifficultyBlack()">
                         <option value="1">Beginner (Depth 1)</option>
                         <option value="2" selected>Easy (Depth 2)</option>
                         <option value="3">Medium (Depth 3)</option>
@@ -1108,7 +1108,7 @@
 
             <h3 style="margin-top: 20px;">Settings</h3>
             <div class="checkbox-container">
-                <input type="checkbox" id="mobileShowLegalMoves" checked onchange="toggleLegalMoves(); syncCheckboxes()">
+                <input type="checkbox" id="mobileShowLegalMoves" checked onchange="toggleMobileLegalMoves()">
                 <label for="mobileShowLegalMoves">Show Legal Moves</label>
             </div>
 
@@ -1120,13 +1120,13 @@
 
     <div class="mobile-header" id="mobileHeader">
         <div class="mobile-header-top">
-            <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
+            <button class="mobile-menu-btn" onclick="openMobileMenu()" aria-label="Open menu">☰</button>
             <div class="mobile-title">coolChess</div>
-            <button class="mobile-info-btn" onclick="showInfo()">ℹ️</button>
+            <button class="mobile-info-btn" onclick="showInfo()" aria-label="Show information about how the AI works">info</button>
         </div>
         <div class="mobile-status-bar">
             <div class="status" id="mobileStatus">White's Turn</div>
-            <button class="mobile-new-game-btn" onclick="newGame()">New Game</button>
+            <button class="mobile-new-game-btn" onclick="newGame()" aria-label="Start a new game">New Game</button>
         </div>
         <div class="ai-thinking" id="mobileAiThinking">
             <div class="ai-thinking-spinner"></div>
@@ -1162,8 +1162,8 @@
                 <div class="control-section">
                     <h3>Quick Actions</h3>
                     <div class="button-row">
-                        <button onclick="undoMove()">Undo Move</button>
-                        <button onclick="getHint()">Get Hint</button>
+                        <button onclick="undoMove()" aria-label="Undo last two moves">Undo Move</button>
+                        <button onclick="getHint()" aria-label="Get AI hint for best move">Get Hint</button>
                     </div>
                     <div class="hint-text" id="hintText" style="display: none;"></div>
                 </div>
@@ -1187,7 +1187,7 @@
         <div class="sidebar">
             <div class="sidebar-title">
                 coolChess
-                <button class="info-button" onclick="showInfo()" title="How it works">ℹ️</button>
+                <button class="info-button" onclick="showInfo()" title="How it works" aria-label="Show information about how the AI works">info</button>
             </div>
 
             <div class="panel">
@@ -1207,10 +1207,10 @@
             <div class="panel">
                 <h2>Game Mode</h2>
                 <div class="mode-buttons">
-                    <button onclick="setMode('pvp')">Player vs Player</button>
-                    <button onclick="setMode('ai')">Player vs AI</button>
+                    <button onclick="setMode('pvp')" aria-label="Play against another human player">Player vs Player</button>
+                    <button onclick="setMode('ai')" aria-label="Play against the AI">Player vs AI</button>
                 </div>
-                <button onclick="setMode('watch')" style="margin-top: 10px;">Watch AI vs AI</button>
+                <button onclick="setMode('watch')" style="margin-top: 10px;" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
             </div>
 
             <div class="panel">
@@ -1254,7 +1254,7 @@
                     <input type="checkbox" id="showLegalMoves" checked onchange="toggleLegalMoves()">
                     <label for="showLegalMoves">Show Legal Moves</label>
                 </div>
-                <button onclick="newGame()">New Game</button>
+                <button onclick="newGame()" aria-label="Start a new game">New Game</button>
             </div>
         </div>
     </div>
@@ -1293,7 +1293,7 @@
             'start': [
                 { from: { row: 6, col: 4 }, to: { row: 4, col: 4 } }, // e4
                 { from: { row: 6, col: 3 }, to: { row: 4, col: 3 } }, // d4
-                { from: { row: 6, col: 2 }, to: { row: 5, col: 2 } }, // c3 (English)
+                { from: { row: 6, col: 2 }, to: { row: 4, col: 2 } }, // c4 (English)
                 { from: { row: 7, col: 6 }, to: { row: 5, col: 5 } }  // Nf3
             ],
             'e2e4': [
@@ -1349,6 +1349,7 @@
             updateEvaluationBar();
             updateMoveCounter();
             document.getElementById('moveHistory').innerHTML = '';
+            document.getElementById('mobileMoveHistory').innerHTML = '';
             document.getElementById('hintText').style.display = 'none';
         }
 
@@ -1407,7 +1408,9 @@
                 const kingPos = findKing(currentPlayer);
                 if (kingPos) {
                     const kingSquare = document.querySelector(`[data-row="${kingPos.row}"][data-col="${kingPos.col}"]`);
-                    kingSquare.classList.add('check');
+                    if (kingSquare) {
+                        kingSquare.classList.add('check');
+                    }
                 }
             }
 
@@ -1713,17 +1716,20 @@
             // Check if king is in check
             if (isInCheck(player)) return false;
 
-            // Check if path is clear
+            // Check if path is clear (only between king and destination)
             const step = isKingside ? 1 : -1;
-            for (let col = fromCol + step; col !== toCol + step; col += step) {
+            for (let col = fromCol + step; col !== toCol; col += step) {
                 if (board[fromRow][col]) return false;
             }
 
             // Check if king passes through or ends in check
             const tempBoard = JSON.parse(JSON.stringify(board));
+            const king = player === 'white' ? 'K' : 'k';
             for (let col = fromCol; col !== toCol + step; col += step) {
-                board[fromRow][col] = '';
-                board[fromRow][col] = player === 'white' ? 'K' : 'k';
+                // Restore board and move king to current position
+                board = JSON.parse(JSON.stringify(tempBoard));
+                board[fromRow][fromCol] = '';
+                board[fromRow][col] = king;
                 if (isInCheck(player)) {
                     board = tempBoard;
                     return false;
@@ -1740,12 +1746,24 @@
             const capturedPiece = board[toRow][toCol];
             const pieceType = piece.toLowerCase();
 
+            // Detect en passant capture before saving state
+            let enPassantCapture = null;
+            if (pieceType === 'p' && enPassantTarget && toRow === enPassantTarget.row && toCol === enPassantTarget.col) {
+                const capturedPawnRow = currentPlayer === 'white' ? toRow + 1 : toRow - 1;
+                enPassantCapture = board[capturedPawnRow][toCol];
+            }
+
+            // Detect castling move
+            const wasCastling = pieceType === 'k' && Math.abs(toCol - fromCol) === 2;
+
             // Save game state for undo
             moveHistory.push({
                 from: { row: fromRow, col: fromCol },
                 to: { row: toRow, col: toCol },
                 piece: piece,
                 captured: capturedPiece,
+                enPassantCaptured: enPassantCapture,
+                wasCastling: wasCastling,
                 board: JSON.parse(JSON.stringify(board)),
                 castlingRights: JSON.parse(JSON.stringify(castlingRights)),
                 enPassantTarget: enPassantTarget,
@@ -1761,10 +1779,8 @@
             }
 
             // Handle en passant capture
-            let enPassantCapture = null;
-            if (pieceType === 'p' && enPassantTarget && toRow === enPassantTarget.row && toCol === enPassantTarget.col) {
+            if (enPassantCapture) {
                 const capturedPawnRow = currentPlayer === 'white' ? toRow + 1 : toRow - 1;
-                enPassantCapture = board[capturedPawnRow][toCol];
                 board[capturedPawnRow][toCol] = '';
                 if (isOwnPiece(enPassantCapture, 'white')) {
                     capturedPieces.black.push(enPassantCapture);
@@ -1815,7 +1831,7 @@
                 enPassantTarget = null;
             }
 
-            // Update castling rights
+            // Update castling rights when king or rook moves
             if (pieceType === 'k') {
                 if (currentPlayer === 'white') {
                     castlingRights.white.kingside = false;
@@ -1835,15 +1851,28 @@
                 }
             }
 
+            // Update castling rights when rook is captured
+            if (capturedPiece && capturedPiece.toLowerCase() === 'r') {
+                // White rooks at starting positions
+                if (toRow === 7 && toCol === 0) castlingRights.white.queenside = false;
+                if (toRow === 7 && toCol === 7) castlingRights.white.kingside = false;
+                // Black rooks at starting positions
+                if (toRow === 0 && toCol === 0) castlingRights.black.queenside = false;
+                if (toRow === 0 && toCol === 7) castlingRights.black.kingside = false;
+            }
+
             // Update last move
             lastMove = { from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } };
 
-            // Add to move history display
+            // Add to move history display (both desktop and mobile)
             const moveNotation = `${PIECES[piece]} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + toCol)}${8 - toRow}`;
             const moveDiv = document.createElement('div');
             moveDiv.textContent = `${fullMoveNumber}. ${moveNotation}`;
+            const mobileMoveDiv = moveDiv.cloneNode(true);
             document.getElementById('moveHistory').appendChild(moveDiv);
             document.getElementById('moveHistory').scrollTop = document.getElementById('moveHistory').scrollHeight;
+            document.getElementById('mobileMoveHistory').appendChild(mobileMoveDiv);
+            document.getElementById('mobileMoveHistory').scrollTop = document.getElementById('mobileMoveHistory').scrollHeight;
 
             // Switch player
             currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
@@ -1934,7 +1963,7 @@
             const title = document.getElementById('gameOverTitle');
             const message = document.getElementById('gameOverMessage');
 
-            // Check for 50-move rule
+            // Check for 50-move rule (100 half-moves = 50 full moves)
             if (halfMoveClock >= 100) {
                 gameOver = true;
                 title.textContent = '50-Move Rule Draw';
@@ -2042,18 +2071,6 @@
                             from: moveHistory[moveHistory.length - 1].from,
                             to: { row, col }
                         };
-                    }
-
-                    // Track position for repetition
-                    const positionKey = JSON.stringify(board);
-                    positionHistory.push(positionKey);
-
-                    // Switch player
-                    currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-
-                    // Update fullmove number
-                    if (currentPlayer === 'white') {
-                        fullMoveNumber++;
                     }
 
                     // Update UI
@@ -2238,10 +2255,11 @@
                 let maxScore = -Infinity;
 
                 for (const move of moves) {
-                    // Make move
+                    // Save game state
                     const originalBoard = JSON.parse(JSON.stringify(board));
                     const originalCurrentPlayer = currentPlayer;
-                    const capturedPiece = board[move.to.row][move.to.col];
+                    const originalCastlingRights = JSON.parse(JSON.stringify(castlingRights));
+                    const originalEnPassantTarget = enPassantTarget;
 
                     currentPlayer = player;
                     board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
@@ -2250,9 +2268,11 @@
                     const nextPlayer = player === 'white' ? 'black' : 'white';
                     const result = minimax(depth - 1, nextPlayer, alpha, beta, false);
 
-                    // Undo move
+                    // Restore game state
                     board = originalBoard;
                     currentPlayer = originalCurrentPlayer;
+                    castlingRights = originalCastlingRights;
+                    enPassantTarget = originalEnPassantTarget;
 
                     if (result.score > maxScore) {
                         maxScore = result.score;
@@ -2270,10 +2290,11 @@
                 let minScore = Infinity;
 
                 for (const move of moves) {
-                    // Make move
+                    // Save game state
                     const originalBoard = JSON.parse(JSON.stringify(board));
                     const originalCurrentPlayer = currentPlayer;
-                    const capturedPiece = board[move.to.row][move.to.col];
+                    const originalCastlingRights = JSON.parse(JSON.stringify(castlingRights));
+                    const originalEnPassantTarget = enPassantTarget;
 
                     currentPlayer = player;
                     board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
@@ -2282,9 +2303,11 @@
                     const nextPlayer = player === 'white' ? 'black' : 'white';
                     const result = minimax(depth - 1, nextPlayer, alpha, beta, true);
 
-                    // Undo move
+                    // Restore game state
                     board = originalBoard;
                     currentPlayer = originalCurrentPlayer;
+                    castlingRights = originalCastlingRights;
+                    enPassantTarget = originalEnPassantTarget;
 
                     if (result.score < minScore) {
                         minScore = result.score;
@@ -2302,7 +2325,7 @@
         }
 
         // Evaluate board position
-        function evaluateBoard() {
+        function evaluateBoard(depth = 0) {
             const pieceValues = {
                 'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000,
                 'P': 100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000
@@ -2415,13 +2438,12 @@
             const originalPlayer = currentPlayer;
 
             currentPlayer = 'white';
-            whiteMoves = getAllLegalMoves('white').length;
+            const whiteMoves = getAllLegalMoves('white').length;
 
             currentPlayer = 'black';
-            blackMoves = getAllLegalMoves('black').length;
+            const blackMoves = getAllLegalMoves('black').length;
 
             currentPlayer = originalPlayer;
-
             score += (whiteMoves - blackMoves) * 10;
 
             // King safety - penalize if king is in check
@@ -2440,7 +2462,7 @@
             hintText.textContent = 'Calculating best move...';
 
             setTimeout(() => {
-                const bestMove = minimax(Math.min(aiDifficulty, 2), currentPlayer, -Infinity, Infinity, true);
+                const bestMove = minimax(Math.min(aiDifficulty, 2), currentPlayer, -Infinity, Infinity, currentPlayer === 'white');
 
                 if (bestMove.move) {
                     const piece = board[bestMove.move.from.row][bestMove.move.from.col];
@@ -2472,10 +2494,24 @@
             fullMoveNumber = lastMoveData.fullMoveNumber;
             currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
 
-            // Update captured pieces
+            // Clean up position history
+            if (positionHistory.length > 0) {
+                positionHistory.pop();
+            }
+
+            // Update captured pieces (normal captures)
             if (lastMoveData.captured) {
                 const capturedBy = isOwnPiece(lastMoveData.captured, 'white') ? 'black' : 'white';
                 const index = capturedPieces[capturedBy].indexOf(lastMoveData.captured);
+                if (index > -1) {
+                    capturedPieces[capturedBy].splice(index, 1);
+                }
+            }
+
+            // Update captured pieces (en passant)
+            if (lastMoveData.enPassantCaptured) {
+                const capturedBy = isOwnPiece(lastMoveData.enPassantCaptured, 'white') ? 'black' : 'white';
+                const index = capturedPieces[capturedBy].indexOf(lastMoveData.enPassantCaptured);
                 if (index > -1) {
                     capturedPieces[capturedBy].splice(index, 1);
                 }
@@ -2494,6 +2530,11 @@
             const moveHistoryDiv = document.getElementById('moveHistory');
             if (moveHistoryDiv.lastChild) {
                 moveHistoryDiv.removeChild(moveHistoryDiv.lastChild);
+            }
+
+            const mobileMoveHistoryDiv = document.getElementById('mobileMoveHistory');
+            if (mobileMoveHistoryDiv.lastChild) {
+                mobileMoveHistoryDiv.removeChild(mobileMoveHistoryDiv.lastChild);
             }
 
             return true;
@@ -2564,18 +2605,55 @@
 
         function updateDifficulty() {
             aiDifficulty = parseInt(document.getElementById('difficulty').value);
+            // Sync to mobile
+            const mobileDifficulty = document.getElementById('mobileDifficulty');
+            if (mobileDifficulty) mobileDifficulty.value = aiDifficulty;
         }
 
         function updateDifficultyWhite() {
             aiDifficultyWhite = parseInt(document.getElementById('difficultyWhite').value);
+            // Sync to mobile
+            const mobileDifficultyWhite = document.getElementById('mobileDifficultyWhite');
+            if (mobileDifficultyWhite) mobileDifficultyWhite.value = aiDifficultyWhite;
         }
 
         function updateDifficultyBlack() {
             aiDifficultyBlack = parseInt(document.getElementById('difficultyBlack').value);
+            // Sync to mobile
+            const mobileDifficultyBlack = document.getElementById('mobileDifficultyBlack');
+            if (mobileDifficultyBlack) mobileDifficultyBlack.value = aiDifficultyBlack;
+        }
+
+        function updateMobileDifficulty() {
+            aiDifficulty = parseInt(document.getElementById('mobileDifficulty').value);
+            // Sync to desktop
+            document.getElementById('difficulty').value = aiDifficulty;
+        }
+
+        function updateMobileDifficultyWhite() {
+            aiDifficultyWhite = parseInt(document.getElementById('mobileDifficultyWhite').value);
+            // Sync to desktop
+            document.getElementById('difficultyWhite').value = aiDifficultyWhite;
+        }
+
+        function updateMobileDifficultyBlack() {
+            aiDifficultyBlack = parseInt(document.getElementById('mobileDifficultyBlack').value);
+            // Sync to desktop
+            document.getElementById('difficultyBlack').value = aiDifficultyBlack;
         }
 
         function toggleLegalMoves() {
             showLegalMovesEnabled = document.getElementById('showLegalMoves').checked;
+            // Sync to mobile
+            const mobileCheckbox = document.getElementById('mobileShowLegalMoves');
+            if (mobileCheckbox) mobileCheckbox.checked = showLegalMovesEnabled;
+            renderBoard();
+        }
+
+        function toggleMobileLegalMoves() {
+            showLegalMovesEnabled = document.getElementById('mobileShowLegalMoves').checked;
+            // Sync to desktop
+            document.getElementById('showLegalMoves').checked = showLegalMovesEnabled;
             renderBoard();
         }
 
@@ -2597,9 +2675,6 @@
         function openMobileMenu() {
             document.getElementById('overlay').classList.add('show');
             document.getElementById('mobileMenu').classList.add('show');
-            // Sync move history
-            const desktopHistory = document.getElementById('moveHistory').innerHTML;
-            document.getElementById('mobileMoveHistory').innerHTML = desktopHistory;
         }
 
         function closeMobileMenu() {
@@ -2607,37 +2682,6 @@
             document.getElementById('mobileMenu').classList.remove('show');
         }
 
-        // Sync difficulty selects between desktop and mobile
-        function syncDifficultySelects() {
-            const difficulty = document.getElementById('difficulty').value;
-            const mobileDifficulty = document.getElementById('mobileDifficulty');
-            if (mobileDifficulty) {
-                mobileDifficulty.value = difficulty;
-            }
-
-            const difficultyWhite = document.getElementById('difficultyWhite').value;
-            const mobileDifficultyWhite = document.getElementById('mobileDifficultyWhite');
-            if (mobileDifficultyWhite) {
-                mobileDifficultyWhite.value = difficultyWhite;
-            }
-
-            const difficultyBlack = document.getElementById('difficultyBlack').value;
-            const mobileDifficultyBlack = document.getElementById('mobileDifficultyBlack');
-            if (mobileDifficultyBlack) {
-                mobileDifficultyBlack.value = difficultyBlack;
-            }
-        }
-
-        // Sync checkboxes between desktop and mobile
-        function syncCheckboxes() {
-            const desktopCheckbox = document.getElementById('showLegalMoves');
-            const mobileCheckbox = document.getElementById('mobileShowLegalMoves');
-            if (desktopCheckbox && mobileCheckbox) {
-                if (desktopCheckbox.checked !== mobileCheckbox.checked) {
-                    mobileCheckbox.checked = desktopCheckbox.checked;
-                }
-            }
-        }
 
         // Initialize game on load
         initGame();
