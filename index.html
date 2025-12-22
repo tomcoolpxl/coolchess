@@ -621,26 +621,375 @@
             margin-top: 5px;
         }
 
-        @media (max-width: 1024px) {
+        /* Hide mobile elements on desktop */
+        .mobile-header {
+            display: none;
+        }
+
+        .mobile-menu {
+            display: none;
+        }
+
+        /* Mobile-only styles (phones) */
+        @media (max-width: 600px) {
+            * {
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            body {
+                padding: 0;
+                align-items: flex-start;
+            }
+
+            /* Hide sidebar completely */
+            .sidebar {
+                display: none !important;
+            }
+
+            /* Hide desktop AI thinking */
+            #aiThinking {
+                display: none !important;
+            }
+
+            /* Mobile header - always visible */
+            .mobile-header {
+                display: block;
+                width: 100%;
+                background: white;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+
+            .mobile-header-top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 15px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+
+            .mobile-title {
+                font-size: 20px;
+                font-weight: bold;
+                color: white;
+                letter-spacing: 1px;
+            }
+
+            .mobile-menu-btn, .mobile-info-btn {
+                width: 40px;
+                height: 40px;
+                border-radius: 8px;
+                background: rgba(255,255,255,0.2);
+                border: 2px solid white;
+                color: white;
+                font-size: 18px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                margin: 0;
+            }
+
+            .mobile-menu-btn:active, .mobile-info-btn:active {
+                background: rgba(255,255,255,0.3);
+                transform: scale(0.95);
+            }
+
+            .mobile-status-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 15px;
+                background: #f8f9fa;
+                border-bottom: 1px solid #ddd;
+            }
+
+            .mobile-status-bar .status {
+                font-size: 14px;
+                margin: 0;
+            }
+
+            .mobile-new-game-btn {
+                padding: 8px 16px;
+                font-size: 13px;
+                margin: 0;
+                width: auto;
+            }
+
+            #mobileAiThinking {
+                padding: 8px 15px;
+                margin: 0;
+                border-radius: 0;
+                font-size: 12px;
+            }
+
+            #mobileAiThinking .ai-thinking-spinner {
+                width: 16px;
+                height: 16px;
+            }
+
+            /* Mobile menu */
+            .mobile-menu {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 20px;
+                border-radius: 15px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                z-index: 1001;
+                display: none;
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow-y: auto;
+                width: 320px;
+            }
+
+            .mobile-menu.show {
+                display: block;
+            }
+
+            .mobile-menu h2 {
+                font-size: 20px;
+                margin-bottom: 15px;
+                color: #667eea;
+            }
+
+            .mobile-menu h3 {
+                font-size: 14px;
+                margin-bottom: 8px;
+                color: #764ba2;
+            }
+
+            .mobile-menu-content {
+                margin-bottom: 10px;
+            }
+
+            .mobile-menu button {
+                margin-bottom: 8px;
+            }
+
+            .mobile-menu .move-history {
+                max-height: 120px;
+                font-size: 12px;
+            }
+
+            .mobile-menu .checkbox-container {
+                margin-bottom: 0;
+            }
+
+            .mobile-menu .checkbox-container input {
+                width: 24px;
+                height: 24px;
+            }
+
+            .mobile-menu .checkbox-container label {
+                font-size: 14px;
+            }
+
+            /* Container */
             .container {
                 grid-template-columns: 1fr;
+                padding: 10px;
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+            }
+
+            /* Board scaling */
+            .board-wrapper {
+                gap: 5px;
             }
 
             .chessboard {
-                grid-template-columns: repeat(8, 60px);
-                grid-template-rows: repeat(8, 60px);
+                grid-template-columns: repeat(8, 40px);
+                grid-template-rows: repeat(8, 40px);
+                border: 2px solid #333;
             }
 
             .square {
+                width: 40px;
+                height: 40px;
+                font-size: 28px;
+            }
+
+            .square:hover {
+                opacity: 1;
+            }
+
+            .square:active {
+                opacity: 0.8;
+            }
+
+            /* Evaluation bar */
+            .evaluation-bar {
+                width: 20px;
+                height: 320px;
+                border: 1px solid #333;
+            }
+
+            .eval-text {
+                font-size: 8px;
+                padding: 2px 3px;
+            }
+
+            /* Coordinates */
+            .coord-label {
+                font-size: 9px;
+            }
+
+            .coord-file {
+                bottom: -18px;
+            }
+
+            .coord-rank {
+                left: -18px;
+            }
+
+            /* Move arrow */
+            .move-arrow-svg {
+                width: 320px;
+                height: 320px;
+            }
+
+            /* Legal move indicators */
+            .square.legal-move::after {
+                width: 12px;
+                height: 12px;
+            }
+
+            .square.legal-capture::after {
+                width: 34px;
+                height: 34px;
+                border: 2px solid rgba(0,0,0,0.4);
+            }
+
+            /* Board controls */
+            .board-controls {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                margin-top: 15px;
+            }
+
+            .control-section {
+                padding: 10px;
+            }
+
+            .control-section h3 {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+
+            .captured-pieces {
+                font-size: 20px;
+                gap: 5px;
+            }
+
+            .captured-row strong {
+                min-width: 50px;
+                font-size: 13px;
+            }
+
+            .hint-text {
+                font-size: 11px;
+                padding: 8px;
+            }
+
+            /* Dialogs */
+            .info-dialog {
+                padding: 15px;
+                max-width: 90vw;
+                max-height: 85vh;
+            }
+
+            .info-dialog h2 {
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+
+            .info-dialog h3 {
+                font-size: 16px;
+                margin-top: 15px;
+                margin-bottom: 8px;
+            }
+
+            .info-dialog p, .info-dialog li {
+                font-size: 13px;
+                margin-bottom: 10px;
+            }
+
+            .game-over {
+                padding: 20px;
+                max-width: 90vw;
+            }
+
+            .game-over h2 {
+                font-size: 24px;
+                margin-bottom: 15px;
+            }
+
+            .game-over p {
+                font-size: 16px;
+                margin-bottom: 20px;
+            }
+
+            .promotion-dialog {
+                padding: 15px;
+                max-width: 90vw;
+            }
+
+            .promotion-dialog h3 {
+                font-size: 16px;
+                margin-bottom: 15px;
+            }
+
+            .promotion-pieces {
+                gap: 10px;
+            }
+
+            .promotion-piece {
                 width: 60px;
                 height: 60px;
-                font-size: 40px;
+                font-size: 48px;
+                border: 2px solid #667eea;
+            }
+
+            /* Buttons - ensure good touch targets */
+            button {
+                padding: 12px 16px;
+                font-size: 14px;
+                touch-action: manipulation;
+                min-height: 44px;
+            }
+
+            button:hover {
+                transform: none;
+            }
+
+            button:active {
+                transform: scale(0.98);
+            }
+
+            select {
+                padding: 12px;
+                font-size: 14px;
+                touch-action: manipulation;
+                min-height: 44px;
+            }
+
+            /* Hide move counter on very small screens */
+            .move-counter {
+                font-size: 12px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="overlay" id="overlay"></div>
+    <div class="overlay" id="overlay" onclick="handleOverlayClick()"></div>
 
     <div class="game-over" id="gameOver">
         <h2 id="gameOverTitle">Game Over</h2>
@@ -679,6 +1028,74 @@
             <p>Total: 11 pre-programmed moves. The AI randomly selects from available options.</p>
         </div>
         <button onclick="closeInfo()">Close</button>
+    </div>
+
+    <div class="mobile-menu" id="mobileMenu">
+        <h2>Menu</h2>
+        <div class="mobile-menu-content">
+            <h3>Game Mode</h3>
+            <div class="mode-buttons">
+                <button onclick="setMode('pvp'); closeMobileMenu()">Player vs Player</button>
+                <button onclick="setMode('ai'); closeMobileMenu()">Player vs AI</button>
+            </div>
+            <button onclick="setMode('watch'); closeMobileMenu()" style="margin-top: 10px;">Watch AI vs AI</button>
+
+            <h3 style="margin-top: 20px;">AI Difficulty</h3>
+            <div id="mobileSingleAIDifficulty">
+                <select id="mobileDifficulty" onchange="updateDifficulty(); syncDifficultySelects()">
+                    <option value="1">Beginner (Depth 1)</option>
+                    <option value="2" selected>Easy (Depth 2)</option>
+                    <option value="3">Medium (Depth 3)</option>
+                    <option value="4">Hard (Depth 4)</option>
+                </select>
+            </div>
+            <div id="mobileWatchAIDifficulty" style="display: none;">
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">White AI:</label>
+                    <select id="mobileDifficultyWhite" onchange="updateDifficultyWhite(); syncDifficultySelects()">
+                        <option value="1">Beginner (Depth 1)</option>
+                        <option value="2" selected>Easy (Depth 2)</option>
+                        <option value="3">Medium (Depth 3)</option>
+                        <option value="4">Hard (Depth 4)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">Black AI:</label>
+                    <select id="mobileDifficultyBlack" onchange="updateDifficultyBlack(); syncDifficultySelects()">
+                        <option value="1">Beginner (Depth 1)</option>
+                        <option value="2" selected>Easy (Depth 2)</option>
+                        <option value="3">Medium (Depth 3)</option>
+                        <option value="4">Hard (Depth 4)</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 20px;">Settings</h3>
+            <div class="checkbox-container">
+                <input type="checkbox" id="mobileShowLegalMoves" checked onchange="toggleLegalMoves(); syncCheckboxes()">
+                <label for="mobileShowLegalMoves">Show Legal Moves</label>
+            </div>
+
+            <h3 style="margin-top: 20px;">Move History</h3>
+            <div class="move-history" id="mobileMoveHistory"></div>
+        </div>
+        <button onclick="closeMobileMenu()" style="margin-top: 20px;">Close</button>
+    </div>
+
+    <div class="mobile-header" id="mobileHeader">
+        <div class="mobile-header-top">
+            <button class="mobile-menu-btn" onclick="openMobileMenu()">☰</button>
+            <div class="mobile-title">coolChess</div>
+            <button class="mobile-info-btn" onclick="showInfo()">ℹ️</button>
+        </div>
+        <div class="mobile-status-bar">
+            <div class="status" id="mobileStatus">White's Turn</div>
+            <button class="mobile-new-game-btn" onclick="newGame()">New Game</button>
+        </div>
+        <div class="ai-thinking" id="mobileAiThinking">
+            <div class="ai-thinking-spinner"></div>
+            <div class="ai-thinking-text" id="mobileAiThinkingText">AI is thinking...</div>
+        </div>
     </div>
 
     <div class="container">
@@ -885,6 +1302,10 @@
             document.getElementById('overlay').classList.remove('show');
             document.getElementById('promotionDialog').classList.remove('show');
             document.getElementById('aiThinking').classList.remove('show');
+            const mobileAiThinking = document.getElementById('mobileAiThinking');
+            if (mobileAiThinking) {
+                mobileAiThinking.classList.remove('show');
+            }
 
             renderBoard();
             updateStatus();
@@ -995,17 +1416,23 @@
                 }, 4000);
             }
 
-            const squareSize = 70;
+            // Get actual square size from rendered board
+            const boardSquare = document.querySelector('.square');
+            const squareSize = boardSquare ? boardSquare.offsetWidth : 70;
             const fromX = lastMove.from.col * squareSize + squareSize / 2;
             const fromY = lastMove.from.row * squareSize + squareSize / 2;
             const toX = lastMove.to.col * squareSize + squareSize / 2;
             const toY = lastMove.to.row * squareSize + squareSize / 2;
 
+            // Scale arrow elements based on square size
+            const circleRadius = squareSize / 8.75; // 8 for 70px squares
+            const strokeWidth = squareSize / 14; // 5 for 70px squares
+
             // Draw a circle at the start position
             const startCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             startCircle.setAttribute('cx', fromX);
             startCircle.setAttribute('cy', fromY);
-            startCircle.setAttribute('r', '8');
+            startCircle.setAttribute('r', circleRadius.toString());
             startCircle.setAttribute('fill', 'rgba(255, 170, 0, 0.5)');
             startCircle.setAttribute('stroke', 'rgba(255, 140, 0, 0.7)');
             startCircle.setAttribute('stroke-width', '1.5');
@@ -1018,7 +1445,7 @@
             arrow.setAttribute('x2', toX);
             arrow.setAttribute('y2', toY);
             arrow.setAttribute('stroke', 'rgba(255, 170, 0, 0.7)');
-            arrow.setAttribute('stroke-width', '5');
+            arrow.setAttribute('stroke-width', strokeWidth.toString());
             arrow.setAttribute('marker-end', 'url(#arrowhead)');
             arrow.setAttribute('stroke-linecap', 'round');
             svg.appendChild(arrow);
@@ -1519,16 +1946,28 @@
         // Update status display
         function updateStatus() {
             const status = document.getElementById('status');
+            const mobileStatus = document.getElementById('mobileStatus');
+
+            let statusText = '';
+            let statusClass = 'status';
+
             if (gameOver) {
-                status.textContent = 'Game Over';
-                status.className = 'status';
+                statusText = 'Game Over';
             } else {
-                status.textContent = `${currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
-                status.className = `status ${currentPlayer}-turn`;
+                statusText = `${currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
+                statusClass = `status ${currentPlayer}-turn`;
 
                 if (isInCheck(currentPlayer)) {
-                    status.textContent += ' - Check!';
+                    statusText += ' - Check!';
                 }
+            }
+
+            status.textContent = statusText;
+            status.className = statusClass;
+
+            if (mobileStatus) {
+                mobileStatus.textContent = statusText;
+                mobileStatus.className = statusClass;
             }
         }
 
@@ -1665,10 +2104,19 @@
             // Show thinking indicator
             const thinkingDialog = document.getElementById('aiThinking');
             const thinkingText = document.getElementById('aiThinkingText');
+            const mobileThinkingDialog = document.getElementById('mobileAiThinking');
+            const mobileThinkingText = document.getElementById('mobileAiThinkingText');
             const difficultyNames = ['Beginner', 'Easy', 'Medium', 'Hard'];
             const difficultyName = difficultyNames[currentDifficulty - 1] || 'Unknown';
-            thinkingText.textContent = `${difficultyName} (depth ${currentDifficulty})`;
+            const thinkingMessage = `${difficultyName} (depth ${currentDifficulty})`;
+            thinkingText.textContent = thinkingMessage;
             thinkingDialog.classList.add('show');
+            if (mobileThinkingText) {
+                mobileThinkingText.textContent = thinkingMessage;
+            }
+            if (mobileThinkingDialog) {
+                mobileThinkingDialog.classList.add('show');
+            }
 
             // Use setTimeout to let the UI update before blocking
             setTimeout(() => {
@@ -1680,6 +2128,9 @@
 
                 // Hide thinking indicator
                 thinkingDialog.classList.remove('show');
+                if (mobileThinkingDialog) {
+                    mobileThinkingDialog.classList.remove('show');
+                }
 
                 if (bestMove.move) {
                     // Check if it's a pawn promotion
@@ -2048,16 +2499,24 @@
         function setMode(mode) {
             gameMode = mode;
 
-            // Show/hide appropriate difficulty selectors
+            // Show/hide appropriate difficulty selectors (desktop)
             const singleDiff = document.getElementById('singleAIDifficulty');
             const watchDiff = document.getElementById('watchAIDifficulty');
+
+            // Show/hide appropriate difficulty selectors (mobile)
+            const mobileSingleDiff = document.getElementById('mobileSingleAIDifficulty');
+            const mobileWatchDiff = document.getElementById('mobileWatchAIDifficulty');
 
             if (mode === 'watch') {
                 singleDiff.style.display = 'none';
                 watchDiff.style.display = 'block';
+                if (mobileSingleDiff) mobileSingleDiff.style.display = 'none';
+                if (mobileWatchDiff) mobileWatchDiff.style.display = 'block';
             } else {
                 singleDiff.style.display = 'block';
                 watchDiff.style.display = 'none';
+                if (mobileSingleDiff) mobileSingleDiff.style.display = 'block';
+                if (mobileWatchDiff) mobileWatchDiff.style.display = 'none';
             }
 
             newGame();
@@ -2082,6 +2541,66 @@
         function toggleLegalMoves() {
             showLegalMovesEnabled = document.getElementById('showLegalMoves').checked;
             renderBoard();
+        }
+
+        // Handle overlay click to close certain dialogs
+        function handleOverlayClick() {
+            // Only close mobile menu and info dialog on overlay click
+            // Don't close game over or promotion dialogs (require explicit button)
+            const mobileMenu = document.getElementById('mobileMenu');
+            const infoDialog = document.getElementById('infoDialog');
+
+            if (mobileMenu && mobileMenu.classList.contains('show')) {
+                closeMobileMenu();
+            } else if (infoDialog && infoDialog.classList.contains('show')) {
+                closeInfo();
+            }
+        }
+
+        // Mobile menu functions
+        function openMobileMenu() {
+            document.getElementById('overlay').classList.add('show');
+            document.getElementById('mobileMenu').classList.add('show');
+            // Sync move history
+            const desktopHistory = document.getElementById('moveHistory').innerHTML;
+            document.getElementById('mobileMoveHistory').innerHTML = desktopHistory;
+        }
+
+        function closeMobileMenu() {
+            document.getElementById('overlay').classList.remove('show');
+            document.getElementById('mobileMenu').classList.remove('show');
+        }
+
+        // Sync difficulty selects between desktop and mobile
+        function syncDifficultySelects() {
+            const difficulty = document.getElementById('difficulty').value;
+            const mobileDifficulty = document.getElementById('mobileDifficulty');
+            if (mobileDifficulty) {
+                mobileDifficulty.value = difficulty;
+            }
+
+            const difficultyWhite = document.getElementById('difficultyWhite').value;
+            const mobileDifficultyWhite = document.getElementById('mobileDifficultyWhite');
+            if (mobileDifficultyWhite) {
+                mobileDifficultyWhite.value = difficultyWhite;
+            }
+
+            const difficultyBlack = document.getElementById('difficultyBlack').value;
+            const mobileDifficultyBlack = document.getElementById('mobileDifficultyBlack');
+            if (mobileDifficultyBlack) {
+                mobileDifficultyBlack.value = difficultyBlack;
+            }
+        }
+
+        // Sync checkboxes between desktop and mobile
+        function syncCheckboxes() {
+            const desktopCheckbox = document.getElementById('showLegalMoves');
+            const mobileCheckbox = document.getElementById('mobileShowLegalMoves');
+            if (desktopCheckbox && mobileCheckbox) {
+                if (desktopCheckbox.checked !== mobileCheckbox.checked) {
+                    mobileCheckbox.checked = desktopCheckbox.checked;
+                }
+            }
         }
 
         // Initialize game on load
