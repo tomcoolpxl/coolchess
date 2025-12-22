@@ -51,6 +51,51 @@
             align-items: center;
         }
 
+        .board-controls {
+            width: 100%;
+            max-width: 630px;
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .control-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .control-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .button-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .captured-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .captured-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .captured-row strong {
+            min-width: 60px;
+            font-size: 14px;
+        }
+
         .chessboard {
             display: grid;
             grid-template-columns: repeat(8, 70px);
@@ -546,6 +591,32 @@
                     <div class="chessboard" id="chessboard"></div>
                 </div>
             </div>
+
+            <!-- Controls below board -->
+            <div class="board-controls">
+                <div class="control-section">
+                    <h3>Quick Actions</h3>
+                    <div class="button-row">
+                        <button onclick="undoMove()">Undo Move</button>
+                        <button onclick="getHint()">Get Hint</button>
+                    </div>
+                    <div class="hint-text" id="hintText" style="display: none;"></div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Captured Pieces</h3>
+                    <div class="captured-container">
+                        <div class="captured-row">
+                            <strong>White:</strong>
+                            <div class="captured-pieces" id="whiteCaptured"></div>
+                        </div>
+                        <div class="captured-row">
+                            <strong>Black:</strong>
+                            <div class="captured-pieces" id="blackCaptured"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="sidebar">
@@ -610,27 +681,12 @@
             </div>
 
             <div class="panel">
-                <h2>Beginner Help</h2>
+                <h2>Settings</h2>
                 <div class="checkbox-container">
                     <input type="checkbox" id="showLegalMoves" checked onchange="toggleLegalMoves()">
                     <label for="showLegalMoves">Show Legal Moves</label>
                 </div>
-                <button onclick="getHint()">Get Hint</button>
-                <div class="hint-text" id="hintText" style="display: none;"></div>
-            </div>
-
-            <div class="panel">
-                <h2>Controls</h2>
                 <button onclick="newGame()">New Game</button>
-                <button onclick="undoMove()">Undo Move</button>
-            </div>
-
-            <div class="panel">
-                <h2>Captured Pieces</h2>
-                <div><strong>White captured:</strong></div>
-                <div class="captured-pieces" id="whiteCaptured"></div>
-                <div style="margin-top: 10px;"><strong>Black captured:</strong></div>
-                <div class="captured-pieces" id="blackCaptured"></div>
             </div>
         </div>
     </div>
@@ -1803,8 +1859,8 @@
             initGame();
         }
 
-        function undoMove() {
-            if (moveHistory.length === 0) return;
+        function undoSingleMove() {
+            if (moveHistory.length === 0) return false;
 
             const lastMoveData = moveHistory.pop();
             board = lastMoveData.board;
@@ -1833,14 +1889,29 @@
                 lastMove = null;
             }
 
-            gameOver = false;
-            document.getElementById('overlay').classList.remove('show');
-            document.getElementById('gameOver').classList.remove('show');
-
             const moveHistoryDiv = document.getElementById('moveHistory');
             if (moveHistoryDiv.lastChild) {
                 moveHistoryDiv.removeChild(moveHistoryDiv.lastChild);
             }
+
+            return true;
+        }
+
+        function undoMove() {
+            // Undo 2 moves (opponent's move + your move) to get back to your turn
+            if (moveHistory.length < 2) {
+                // If less than 2 moves, just undo 1
+                if (!undoSingleMove()) return;
+            } else {
+                // Undo opponent's move
+                if (!undoSingleMove()) return;
+                // Undo your move
+                if (!undoSingleMove()) return;
+            }
+
+            gameOver = false;
+            document.getElementById('overlay').classList.remove('show');
+            document.getElementById('gameOver').classList.remove('show');
 
             renderBoard();
             updateStatus();
