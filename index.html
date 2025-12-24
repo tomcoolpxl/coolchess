@@ -1346,6 +1346,7 @@
         let pendingPromotion = null;
         let arrowFadeTimeout = null;
         let arrowFadeTimeoutMove = null;
+        let arrowRemovalTimeout = null; // Track nested timeout for arrow removal
         let positionHistory = [];
         let watchMatchRunning = false;
         let gameOverReason = '';
@@ -1413,6 +1414,10 @@
             if (arrowFadeTimeout) {
                 clearTimeout(arrowFadeTimeout);
                 arrowFadeTimeout = null;
+            }
+            if (arrowRemovalTimeout) {
+                clearTimeout(arrowRemovalTimeout);
+                arrowRemovalTimeout = null;
             }
             arrowFadeTimeoutMove = null;
 
@@ -1535,9 +1540,12 @@
             const isNewMove = moveKey !== arrowFadeTimeoutMove;
 
             if (isNewMove) {
-                // Clear old timeout and reset opacity for new move
+                // Clear old timeouts and reset opacity for new move
                 if (arrowFadeTimeout) {
                     clearTimeout(arrowFadeTimeout);
+                }
+                if (arrowRemovalTimeout) {
+                    clearTimeout(arrowRemovalTimeout);
                 }
                 svg.classList.remove('fade-out');
                 svg.style.opacity = '1';
@@ -1547,10 +1555,11 @@
                 arrowFadeTimeout = setTimeout(() => {
                     svg.classList.add('fade-out');
                     // Remove arrows after fade completes
-                    setTimeout(() => {
+                    arrowRemovalTimeout = setTimeout(() => {
                         const arrows = svg.querySelectorAll('line, circle');
                         arrows.forEach(el => el.remove());
                         svg.classList.remove('fade-out');
+                        arrowRemovalTimeout = null;
                     }, 500); // Wait for 0.5s fade transition to complete
                 }, 4000);
             }
