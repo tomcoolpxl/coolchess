@@ -1348,6 +1348,8 @@
         let positionHistory = [];
         let watchMatchRunning = false;
         let gameOverReason = '';
+        let gameOverDialogTimeout = null;
+        let aiMoveTimeout = null;
 
         // Opening book - common opening moves
         const openingBook = {
@@ -1405,12 +1407,22 @@
                 svg.style.opacity = '1';
             }
 
-            // Clear arrow timeouts
+            // Clear all timeouts
             if (arrowFadeTimeout) {
                 clearTimeout(arrowFadeTimeout);
                 arrowFadeTimeout = null;
             }
             arrowFadeTimeoutMove = null;
+
+            if (gameOverDialogTimeout) {
+                clearTimeout(gameOverDialogTimeout);
+                gameOverDialogTimeout = null;
+            }
+
+            if (aiMoveTimeout) {
+                clearTimeout(aiMoveTimeout);
+                aiMoveTimeout = null;
+            }
 
             // Ensure all overlays and dialogs are hidden
             document.getElementById('overlay').classList.remove('show');
@@ -1670,10 +1682,15 @@
             const piece = board[fromRow][fromCol];
             if (!piece) return false;
 
+            // Must move own piece
+            if (!isOwnPiece(piece, currentPlayer)) {
+                return false;
+            }
+
             const targetPiece = board[toRow][toCol];
 
             // Can't capture own piece
-            if (targetPiece && isOwnPiece(piece, currentPlayer) && isOwnPiece(targetPiece, currentPlayer)) {
+            if (targetPiece && isOwnPiece(targetPiece, currentPlayer)) {
                 return false;
             }
 
@@ -1751,8 +1768,8 @@
                     return false;
 
                 case 'k': // King
-                    // Normal king move
-                    if (Math.abs(rowDiff) <= 1 && Math.abs(colDiff) <= 1) {
+                    // Normal king move (but not staying in place)
+                    if (Math.abs(rowDiff) <= 1 && Math.abs(colDiff) <= 1 && (rowDiff !== 0 || colDiff !== 0)) {
                         return true;
                     }
                     // Castling
@@ -2075,7 +2092,8 @@
                 overlay.classList.add('show');
                 gameOverDiv.classList.add('show');
                 // Auto-hide after 2 seconds
-                setTimeout(() => {
+                if (gameOverDialogTimeout) clearTimeout(gameOverDialogTimeout);
+                gameOverDialogTimeout = setTimeout(() => {
                     overlay.classList.remove('show');
                     gameOverDiv.classList.remove('show');
                 }, 2000);
@@ -2125,7 +2143,8 @@
                 overlay.classList.add('show');
                 gameOverDiv.classList.add('show');
                 // Auto-hide after 2 seconds
-                setTimeout(() => {
+                if (gameOverDialogTimeout) clearTimeout(gameOverDialogTimeout);
+                gameOverDialogTimeout = setTimeout(() => {
                     overlay.classList.remove('show');
                     gameOverDiv.classList.remove('show');
                 }, 2000);
@@ -2215,22 +2234,53 @@
                     dialog.classList.remove('show');
                     overlay.classList.remove('show');
 
+                    // Update the promoted piece on board
                     board[row][col] = piece;
                     pendingPromotion = null;
 
-                    // Update last move
+                    // Get move info from last history entry (saved before early return)
                     if (moveHistory.length > 0) {
+                        const lastHistoryMove = moveHistory[moveHistory.length - 1];
+                        const fromRow = lastHistoryMove.from.row;
+                        const fromCol = lastHistoryMove.from.col;
+                        const originalPiece = lastHistoryMove.piece;
+
+                        // Update last move
                         lastMove = {
-                            from: moveHistory[moveHistory.length - 1].from,
+                            from: { row: fromRow, col: fromCol },
                             to: { row, col }
                         };
+
+                        // Add to move history display (both desktop and mobile)
+                        const pieceSymbol = currentPlayer === 'white' ? PIECES_HOLLOW[originalPiece] : PIECES[originalPiece];
+                        const moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + col)}${8 - row}`;
+                        const moveDiv = document.createElement('div');
+                        moveDiv.textContent = `${fullMoveNumber}. ${moveNotation}`;
+                        const mobileMoveDiv = moveDiv.cloneNode(true);
+                        document.getElementById('moveHistory').appendChild(moveDiv);
+                        document.getElementById('moveHistory').scrollTop = document.getElementById('moveHistory').scrollHeight;
+                        document.getElementById('mobileMoveHistory').appendChild(mobileMoveDiv);
+                        document.getElementById('mobileMoveHistory').scrollTop = document.getElementById('mobileMoveHistory').scrollHeight;
                     }
+
+                    // Switch player (this was missing!)
+                    currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+
+                    // Update fullmove number (increments after black's move)
+                    if (currentPlayer === 'white') {
+                        fullMoveNumber++;
+                    }
+
+                    // Track position for threefold repetition
+                    const positionKey = JSON.stringify(board);
+                    positionHistory.push(positionKey);
 
                     // Update UI
                     renderBoard();
                     updateStatus();
                     updateEvaluationBar();
                     updateMoveCounter();
+                    updateCapturedPieces();
 
                     // Check game over
                     checkGameOver();
@@ -2429,27 +2479,29 @@
                     const originalCastlingRights = JSON.parse(JSON.stringify(castlingRights));
                     const originalEnPassantTarget = enPassantTarget;
 
-                    currentPlayer = player;
-                    board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
-                    board[move.from.row][move.from.col] = '';
+                    try {
+                        currentPlayer = player;
+                        board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
+                        board[move.from.row][move.from.col] = '';
 
-                    const nextPlayer = player === 'white' ? 'black' : 'white';
-                    const result = minimax(depth - 1, nextPlayer, alpha, beta, false);
+                        const nextPlayer = player === 'white' ? 'black' : 'white';
+                        const result = minimax(depth - 1, nextPlayer, alpha, beta, false);
 
-                    // Restore game state
-                    board = originalBoard;
-                    currentPlayer = originalCurrentPlayer;
-                    castlingRights = originalCastlingRights;
-                    enPassantTarget = originalEnPassantTarget;
+                        if (result.score > maxScore) {
+                            maxScore = result.score;
+                            bestMove = move;
+                        }
 
-                    if (result.score > maxScore) {
-                        maxScore = result.score;
-                        bestMove = move;
-                    }
-
-                    alpha = Math.max(alpha, result.score);
-                    if (beta <= alpha) {
-                        break; // Beta cutoff
+                        alpha = Math.max(alpha, result.score);
+                        if (beta <= alpha) {
+                            break; // Beta cutoff (finally block will restore state)
+                        }
+                    } finally {
+                        // Always restore game state
+                        board = originalBoard;
+                        currentPlayer = originalCurrentPlayer;
+                        castlingRights = originalCastlingRights;
+                        enPassantTarget = originalEnPassantTarget;
                     }
                 }
 
@@ -2464,27 +2516,29 @@
                     const originalCastlingRights = JSON.parse(JSON.stringify(castlingRights));
                     const originalEnPassantTarget = enPassantTarget;
 
-                    currentPlayer = player;
-                    board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
-                    board[move.from.row][move.from.col] = '';
+                    try {
+                        currentPlayer = player;
+                        board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
+                        board[move.from.row][move.from.col] = '';
 
-                    const nextPlayer = player === 'white' ? 'black' : 'white';
-                    const result = minimax(depth - 1, nextPlayer, alpha, beta, true);
+                        const nextPlayer = player === 'white' ? 'black' : 'white';
+                        const result = minimax(depth - 1, nextPlayer, alpha, beta, true);
 
-                    // Restore game state
-                    board = originalBoard;
-                    currentPlayer = originalCurrentPlayer;
-                    castlingRights = originalCastlingRights;
-                    enPassantTarget = originalEnPassantTarget;
+                        if (result.score < minScore) {
+                            minScore = result.score;
+                            bestMove = move;
+                        }
 
-                    if (result.score < minScore) {
-                        minScore = result.score;
-                        bestMove = move;
-                    }
-
-                    beta = Math.min(beta, result.score);
-                    if (beta <= alpha) {
-                        break; // Alpha cutoff
+                        beta = Math.min(beta, result.score);
+                        if (beta <= alpha) {
+                            break; // Alpha cutoff (finally block will restore state)
+                        }
+                    } finally {
+                        // Always restore game state
+                        board = originalBoard;
+                        currentPlayer = originalCurrentPlayer;
+                        castlingRights = originalCastlingRights;
+                        enPassantTarget = originalEnPassantTarget;
                     }
                 }
 
@@ -2896,6 +2950,11 @@
                 if (mobileWatchDiff) mobileWatchDiff.style.display = 'none';
                 watchMatchRunning = false;
             }
+
+            // Clear any pending promotion before mode change
+            pendingPromotion = null;
+            document.getElementById('overlay').classList.remove('show');
+            document.getElementById('promotionDialog').classList.remove('show');
 
             newGame();
             updateButtonStates();
