@@ -522,14 +522,19 @@
             color: white;
             padding: 12px 15px;
             border-radius: 8px;
-            display: none;
+            display: flex !important;
             margin: 10px 0;
             align-items: center;
             gap: 12px;
+            min-height: 49px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
         }
 
         .ai-thinking.show {
-            display: flex;
+            opacity: 1;
+            visibility: visible;
         }
 
         .ai-thinking-spinner {
@@ -1336,8 +1341,6 @@
         let arrowFadeTimeout = null;
         let arrowFadeTimeoutMove = null;
         let positionHistory = [];
-        let positionsEvaluated = 0;
-        let positionUpdateInterval = null;
         let watchMatchRunning = false;
 
         // Opening book - common opening moves
@@ -2230,19 +2233,6 @@
                 mobileThinkingDialog.classList.add('show');
             }
 
-            // Initialize position counter and set up live updates for depth >= 3
-            positionsEvaluated = 0;
-            if (currentDifficulty >= 3) {
-                positionUpdateInterval = setInterval(() => {
-                    const formattedCount = positionsEvaluated.toLocaleString();
-                    const updateMessage = `${difficultyName} (depth ${currentDifficulty}) - ${formattedCount} positions`;
-                    thinkingText.textContent = updateMessage;
-                    if (mobileThinkingText) {
-                        mobileThinkingText.textContent = updateMessage;
-                    }
-                }, 100);
-            }
-
             // Use setTimeout to let the UI update before blocking
             setTimeout(() => {
                 const startTime = Date.now();
@@ -2250,12 +2240,6 @@
                 const isMaximizing = currentPlayer === 'white';
                 const bestMove = minimax(currentDifficulty, currentPlayer, -Infinity, Infinity, isMaximizing);
                 const thinkTime = ((Date.now() - startTime) / 1000).toFixed(2);
-
-                // Clear position update interval
-                if (positionUpdateInterval) {
-                    clearInterval(positionUpdateInterval);
-                    positionUpdateInterval = null;
-                }
 
                 // Hide thinking indicator
                 thinkingDialog.classList.remove('show');
@@ -2310,9 +2294,6 @@
 
         // Minimax algorithm with alpha-beta pruning
         function minimax(depth, player, alpha, beta, isMaximizing) {
-            // Increment position counter for live updates
-            positionsEvaluated++;
-
             if (depth === 0) {
                 return { score: evaluateBoard() };
             }
