@@ -2166,7 +2166,12 @@
             if (gameOver) {
                 statusText = gameOverReason || 'Game Over';
             } else {
-                statusText = `${currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
+                // Different wording for watch mode
+                if (gameMode === 'watch') {
+                    statusText = `${currentPlayer === 'white' ? 'White' : 'Black'} to move`;
+                } else {
+                    statusText = `${currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
+                }
                 statusClass = `status ${currentPlayer}-turn`;
 
                 if (isInCheck(currentPlayer)) {
@@ -2185,6 +2190,7 @@
 
         // Update captured pieces display
         function updateCapturedPieces() {
+            // White captures = solid, Black captures = hollow (as requested)
             document.getElementById('whiteCaptured').innerHTML =
                 capturedPieces.white.map(p => PIECES[p]).join(' ');
             document.getElementById('blackCaptured').innerHTML =
@@ -2272,7 +2278,15 @@
         // Update move counter
         function updateMoveCounter() {
             const counter = document.getElementById('moveCounter');
-            counter.textContent = `Move: ${fullMoveNumber} | Halfmove: ${halfMoveClock}`;
+            // More user-friendly display
+            let displayText = `Move ${fullMoveNumber}`;
+
+            // Show 50-move rule progress if getting close
+            if (halfMoveClock > 20) {
+                displayText += ` | Draw in ${100 - halfMoveClock} moves`;
+            }
+
+            counter.textContent = displayText;
         }
 
         // AI Move using Minimax algorithm
@@ -2326,35 +2340,42 @@
                 const bestMove = minimax(currentDifficulty, currentPlayer, -Infinity, Infinity, isMaximizing);
                 const thinkTime = ((Date.now() - startTime) / 1000).toFixed(2);
 
-                // Hide thinking indicator
-                thinkingDialog.classList.remove('show');
-                if (mobileThinkingDialog) {
-                    mobileThinkingDialog.classList.remove('show');
-                }
+                // Ensure minimum 300ms display time for thinking indicator
+                const minDisplayTime = 300;
+                const elapsed = Date.now() - startTime;
+                const delayNeeded = Math.max(0, minDisplayTime - elapsed);
 
-                if (bestMove.move) {
-                    // Check if it's a pawn promotion
-                    const piece = board[bestMove.move.from.row][bestMove.move.from.col];
-                    let promotionPiece = null;
-                    if (piece && piece.toLowerCase() === 'p') {
-                        const toRow = bestMove.move.to.row;
-                        if (toRow === 0 || toRow === 7) {
-                            promotionPiece = currentPlayer === 'white' ? 'Q' : 'q';
+                setTimeout(() => {
+                    // Hide thinking indicator
+                    thinkingDialog.classList.remove('show');
+                    if (mobileThinkingDialog) {
+                        mobileThinkingDialog.classList.remove('show');
+                    }
+
+                    if (bestMove.move) {
+                        // Check if it's a pawn promotion
+                        const piece = board[bestMove.move.from.row][bestMove.move.from.col];
+                        let promotionPiece = null;
+                        if (piece && piece.toLowerCase() === 'p') {
+                            const toRow = bestMove.move.to.row;
+                            if (toRow === 0 || toRow === 7) {
+                                promotionPiece = currentPlayer === 'white' ? 'Q' : 'q';
+                            }
+                        }
+
+                        makeMove(bestMove.move.from.row, bestMove.move.from.col,
+                                bestMove.move.to.row, bestMove.move.to.col,
+                                promotionPiece);
+                        renderBoard();
+
+                        // Show think time in status
+                        console.log(`AI thought for ${thinkTime} seconds`);
+
+                        if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
+                            setTimeout(makeAIMove, 1000);
                         }
                     }
-
-                    makeMove(bestMove.move.from.row, bestMove.move.from.col,
-                            bestMove.move.to.row, bestMove.move.to.col,
-                            promotionPiece);
-                    renderBoard();
-
-                    // Show think time in status
-                    console.log(`AI thought for ${thinkTime} seconds`);
-
-                    if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
-                        setTimeout(makeAIMove, 1000);
-                    }
-                }
+                }, delayNeeded);
             }, 50);
         }
 
@@ -2671,7 +2692,16 @@
             if (gameOver) return;
             if (gameMode === 'watch') return;
 
+            const hintBtn = document.getElementById('hintBtn');
             const hintText = document.getElementById('hintText');
+
+            // Disable button during calculation
+            if (hintBtn) {
+                hintBtn.disabled = true;
+                hintBtn.style.opacity = '0.5';
+                hintBtn.style.cursor = 'not-allowed';
+            }
+
             hintText.style.display = 'block';
             hintText.textContent = 'Calculating best move...';
 
@@ -2691,11 +2721,25 @@
                 } else {
                     hintText.textContent = 'No legal moves available.';
                 }
+
+                // Re-enable button
+                if (hintBtn) {
+                    hintBtn.disabled = false;
+                    hintBtn.style.opacity = '1';
+                    hintBtn.style.cursor = 'pointer';
+                }
             }, 100);
         }
 
         // Game controls
         function newGame() {
+            // Ask for confirmation if game is in progress (moves have been made)
+            if (moveHistory.length > 0 && !gameOver) {
+                if (!confirm('Start a new game? Current game will be lost.')) {
+                    return;
+                }
+            }
+
             document.getElementById('overlay').classList.remove('show');
             document.getElementById('gameOver').classList.remove('show');
             initGame();
