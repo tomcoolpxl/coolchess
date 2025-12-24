@@ -1320,6 +1320,11 @@
             'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
         };
 
+        const PIECES_HOLLOW = {
+            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'k': '♔', 'q': '♕', 'r': '♖', 'b': '♗', 'n': '♘', 'p': '♙'
+        };
+
         // Game state
         let board = [];
         let selectedSquare = null;
@@ -2103,7 +2108,7 @@
             document.getElementById('whiteCaptured').innerHTML =
                 capturedPieces.white.map(p => PIECES[p]).join(' ');
             document.getElementById('blackCaptured').innerHTML =
-                capturedPieces.black.map(p => PIECES[p]).join(' ');
+                capturedPieces.black.map(p => PIECES_HOLLOW[p]).join(' ');
         }
 
         // Show promotion dialog
