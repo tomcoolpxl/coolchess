@@ -674,7 +674,7 @@
                 background: white;
                 position: sticky;
                 top: 0;
-                z-index: 100;
+                z-index: 10; /* Lower z-index to avoid conflict with overlays (z-index: 999) */
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             }
 
@@ -736,10 +736,11 @@
             }
 
             .mobile-new-game-btn {
-                padding: 8px 16px;
+                padding: 12px 16px;
                 font-size: 13px;
                 margin: 0;
                 width: auto;
+                min-height: 44px; /* Ensure touch target meets accessibility standards */
             }
 
             #mobileAiThinking {
@@ -1112,7 +1113,7 @@
 
     <div class="mobile-menu" id="mobileMenu">
         <h2>Menu</h2>
-        <div class="mobile-menu-content">
+        <div class="mobile-menu-content" onclick="event.stopPropagation()">
             <h3>Game Mode</h3>
             <div class="mode-buttons">
                 <button onclick="setMode('pvp'); closeMobileMenu()" aria-label="Play against another human player">Player vs Player</button>
@@ -1149,9 +1150,9 @@
                     </select>
                 </div>
                 <div id="mobileWatchControls" style="margin-top: 15px; display: flex; gap: 5px;">
-                    <button id="mobileStartWatchBtn" onclick="startWatchMatch()" style="flex: 1; padding: 10px; font-size: 14px;">Start Match</button>
-                    <button id="mobilePauseWatchBtn" onclick="pauseWatchMatch()" style="flex: 1; padding: 10px; font-size: 14px; display: none;">Pause</button>
-                    <button id="mobileStopWatchBtn" onclick="stopWatchMatch()" style="flex: 1; padding: 10px; font-size: 14px; display: none;">Stop</button>
+                    <button id="mobileStartWatchBtn" onclick="startWatchMatch()" style="flex: 1; padding: 12px; font-size: 14px; min-height: 44px;">Start Match</button>
+                    <button id="mobilePauseWatchBtn" onclick="pauseWatchMatch()" style="flex: 1; padding: 12px; font-size: 14px; min-height: 44px; display: none;">Pause</button>
+                    <button id="mobileStopWatchBtn" onclick="stopWatchMatch()" style="flex: 1; padding: 12px; font-size: 14px; min-height: 44px; display: none;">Stop</button>
                 </div>
             </div>
 
@@ -1350,6 +1351,7 @@
         let gameOverReason = '';
         let gameOverDialogTimeout = null;
         let aiMoveTimeout = null;
+        let isSyncingUI = false; // Guard flag for UI sync to prevent circular updates
 
         // Opening book - common opening moves
         const openingBook = {
@@ -3031,42 +3033,60 @@
         }
 
         function updateDifficulty() {
+            if (isSyncingUI) return; // Prevent circular updates
+            isSyncingUI = true;
             aiDifficulty = parseInt(document.getElementById('difficulty').value);
             // Sync to mobile
             const mobileDifficulty = document.getElementById('mobileDifficulty');
             if (mobileDifficulty) mobileDifficulty.value = aiDifficulty;
+            isSyncingUI = false;
         }
 
         function updateDifficultyWhite() {
+            if (isSyncingUI) return;
+            isSyncingUI = true;
             aiDifficultyWhite = parseInt(document.getElementById('difficultyWhite').value);
             // Sync to mobile
             const mobileDifficultyWhite = document.getElementById('mobileDifficultyWhite');
             if (mobileDifficultyWhite) mobileDifficultyWhite.value = aiDifficultyWhite;
+            isSyncingUI = false;
         }
 
         function updateDifficultyBlack() {
+            if (isSyncingUI) return;
+            isSyncingUI = true;
             aiDifficultyBlack = parseInt(document.getElementById('difficultyBlack').value);
             // Sync to mobile
             const mobileDifficultyBlack = document.getElementById('mobileDifficultyBlack');
             if (mobileDifficultyBlack) mobileDifficultyBlack.value = aiDifficultyBlack;
+            isSyncingUI = false;
         }
 
         function updateMobileDifficulty() {
+            if (isSyncingUI) return;
+            isSyncingUI = true;
             aiDifficulty = parseInt(document.getElementById('mobileDifficulty').value);
             // Sync to desktop
             document.getElementById('difficulty').value = aiDifficulty;
+            isSyncingUI = false;
         }
 
         function updateMobileDifficultyWhite() {
+            if (isSyncingUI) return;
+            isSyncingUI = true;
             aiDifficultyWhite = parseInt(document.getElementById('mobileDifficultyWhite').value);
             // Sync to desktop
             document.getElementById('difficultyWhite').value = aiDifficultyWhite;
+            isSyncingUI = false;
         }
 
         function updateMobileDifficultyBlack() {
+            if (isSyncingUI) return;
+            isSyncingUI = true;
             aiDifficultyBlack = parseInt(document.getElementById('mobileDifficultyBlack').value);
             // Sync to desktop
             document.getElementById('difficultyBlack').value = aiDifficultyBlack;
+            isSyncingUI = false;
         }
 
         function toggleLegalMoves() {
