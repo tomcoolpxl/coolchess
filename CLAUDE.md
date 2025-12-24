@@ -111,13 +111,26 @@ Search depth controls difficulty:
 ### Opening Book
 
 The opening book contains 11 pre-programmed moves that randomize for variety:
-- White's first move: 4 options (e4, d4, c3, Nf3)
+- White's first move: 4 options (e4, d4, c4 [English Opening], Nf3)
 - Black's response to e4: 4 options (e5, c5, e6, c6)
 - Black's response to d4: 3 options (d5, Nf6, f6)
 
 ## Chess Piece Rendering
 
-Pieces are displayed using Unicode chess characters (♔♕♖♗♘♙ / ♚♛♜♝♞♟) with simple styling.
+Pieces use solid Unicode chess characters (♚♛♜♝♞♟) for both colors:
+- All pieces use the same solid/filled Unicode shapes for visual consistency
+- White pieces are styled with `color: #ffffff` (white)
+- Black pieces are styled with `color: #000000` (black)
+- Classes `.piece-white` and `.piece-black` control colors with `!important` to override dark mode
+
+## Mobile Responsiveness
+
+The application includes full mobile support with:
+- **Mobile Header**: Sticky header with menu button, title, and info button
+- **Mobile Menu**: Side panel with game mode, difficulty, and settings
+- **Real-time Sync**: Desktop and mobile UI elements stay synchronized bidirectionally
+- **Touch Optimizations**: Proper touch targets and tap highlight prevention
+- **Responsive Layout**: Board and controls adapt to screen size
 
 ## Modifying the Game
 
@@ -135,6 +148,29 @@ Pieces are displayed using Unicode chess characters (♔♕♖♗♘♙ / ♚♛
 - Piece size: `.square` font-size
 - Highlight colors: `.selected`, `.legal-move` classes
 
+## Recent Bug Fixes & Improvements
+
+### Critical Fixes
+- **Hint Function**: Fixed incorrect hint suggestions for Black player (was maximizing White's position)
+- **Position History**: Position history now properly cleaned during undo operations
+- **Pawn Promotion**: Removed duplicate position tracking and move counter increments during promotion
+- **Castling Validation**: Fixed path checking and king-through-check validation logic
+
+### Game Logic Improvements
+- **En Passant Undo**: En passant captures now properly tracked and restored during undo
+- **Castling Undo**: Castling moves fully tracked (rook position restored via board state)
+- **Rook Capture**: Castling rights properly updated when rooks are captured
+- **Minimax State**: Special game state (castling rights, en passant) saved/restored in minimax search
+
+### Mobile Enhancements
+- **Bidirectional Sync**: Mobile and desktop UI elements properly synchronized in both directions
+- **Real-time History**: Move history updates in real-time on both desktop and mobile
+- **Touch Targets**: Proper button sizes and touch action handling
+
+### Accessibility
+- **ARIA Labels**: Added to all interactive buttons for screen reader support
+- **Info Button**: Circular "i" button with consistent rendering across platforms
+
 ## Known Behaviors
 
 - AI auto-promotes pawns to queen
@@ -142,3 +178,4 @@ Pieces are displayed using Unicode chess characters (♔♕♖♗♘♙ / ♚♛
 - AI thinking indicator shows current depth during calculation
 - Position evaluation capped at ±2000 centipawns for display
 - Undo reverts 2 moves to return player to their turn
+- All pieces use identical solid shapes, differing only in color (white/black)
