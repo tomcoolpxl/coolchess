@@ -1347,6 +1347,7 @@
         let arrowFadeTimeoutMove = null;
         let positionHistory = [];
         let watchMatchRunning = false;
+        let gameOverReason = '';
 
         // Opening book - common opening moves
         const openingBook = {
@@ -1386,6 +1387,7 @@
             moveHistory = [];
             capturedPieces = { white: [], black: [] };
             gameOver = false;
+            gameOverReason = '';
             castlingRights = { white: { kingside: true, queenside: true }, black: { kingside: true, queenside: true } };
             enPassantTarget = null;
             halfMoveClock = 0;
@@ -2035,10 +2037,16 @@
             // Check for 50-move rule (100 half-moves = 50 full moves)
             if (halfMoveClock >= 100) {
                 gameOver = true;
+                gameOverReason = '50-Move Rule Draw';
                 title.textContent = '50-Move Rule Draw';
                 message.textContent = '50 moves without a capture or pawn move. The game is a draw.';
                 overlay.classList.add('show');
                 gameOverDiv.classList.add('show');
+                // Auto-hide after 2 seconds
+                setTimeout(() => {
+                    overlay.classList.remove('show');
+                    gameOverDiv.classList.remove('show');
+                }, 2000);
                 return;
             }
 
@@ -2048,10 +2056,16 @@
                 const repetitions = positionHistory.filter(pos => pos === currentPosition).length;
                 if (repetitions >= 3) {
                     gameOver = true;
+                    gameOverReason = 'Draw by Repetition';
                     title.textContent = 'Draw by Repetition';
                     message.textContent = 'The same position occurred three times. The game is a draw.';
                     overlay.classList.add('show');
                     gameOverDiv.classList.add('show');
+                    // Auto-hide after 2 seconds
+                    setTimeout(() => {
+                        overlay.classList.remove('show');
+                        gameOverDiv.classList.remove('show');
+                    }, 2000);
                     return;
                 }
             }
@@ -2064,16 +2078,23 @@
                 if (isInCheck(currentPlayer)) {
                     // Checkmate
                     const winner = currentPlayer === 'white' ? 'Black' : 'White';
+                    gameOverReason = `Checkmate - ${winner} wins!`;
                     title.textContent = 'Checkmate!';
                     message.textContent = `${winner} wins!`;
                 } else {
                     // Stalemate
+                    gameOverReason = 'Stalemate - Draw';
                     title.textContent = 'Stalemate!';
                     message.textContent = 'The game is a draw.';
                 }
 
                 overlay.classList.add('show');
                 gameOverDiv.classList.add('show');
+                // Auto-hide after 2 seconds
+                setTimeout(() => {
+                    overlay.classList.remove('show');
+                    gameOverDiv.classList.remove('show');
+                }, 2000);
             }
         }
 
@@ -2086,7 +2107,7 @@
             let statusClass = 'status';
 
             if (gameOver) {
-                statusText = 'Game Over';
+                statusText = gameOverReason || 'Game Over';
             } else {
                 statusText = `${currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
                 statusClass = `status ${currentPlayer}-turn`;
@@ -2699,6 +2720,11 @@
         }
 
         function undoMove() {
+            // Don't allow undo in AI vs AI watch mode
+            if (gameMode === 'watch') {
+                return;
+            }
+
             // Undo 2 moves (opponent's move + your move) to get back to your turn
             if (moveHistory.length < 2) {
                 // If less than 2 moves, just undo 1
@@ -2711,6 +2737,7 @@
             }
 
             gameOver = false;
+            gameOverReason = '';
             document.getElementById('overlay').classList.remove('show');
             document.getElementById('gameOver').classList.remove('show');
 
