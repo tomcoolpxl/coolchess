@@ -1211,8 +1211,8 @@
                 <div class="control-section">
                     <h3>Quick Actions</h3>
                     <div class="button-row">
-                        <button onclick="undoMove()" aria-label="Undo last two moves">Undo Move</button>
-                        <button onclick="getHint()" aria-label="Get AI hint for best move">Get Hint</button>
+                        <button id="undoBtn" onclick="undoMove()" aria-label="Undo last two moves">Undo Move</button>
+                        <button id="hintBtn" onclick="getHint()" aria-label="Get AI hint for best move">Get Hint</button>
                     </div>
                     <div class="hint-text" id="hintText" style="display: none;"></div>
                 </div>
@@ -1354,7 +1354,7 @@
             'start': [
                 { from: { row: 6, col: 4 }, to: { row: 4, col: 4 } }, // e4
                 { from: { row: 6, col: 3 }, to: { row: 4, col: 3 } }, // d4
-                { from: { row: 6, col: 2 }, to: { row: 4, col: 2 } }, // c4 (English)
+                { from: { row: 6, col: 2 }, to: { row: 4, col: 2 } }, // c4 (English Opening)
                 { from: { row: 7, col: 6 }, to: { row: 5, col: 5 } }  // Nf3
             ],
             'e2e4': [
@@ -1396,6 +1396,22 @@
             pendingPromotion = null;
             positionHistory = [];
 
+            // Clear SVG arrows
+            const svg = document.getElementById('moveArrowSvg');
+            if (svg) {
+                const arrows = svg.querySelectorAll('line, circle, .hint-arrow');
+                arrows.forEach(el => el.remove());
+                svg.classList.remove('fade-out');
+                svg.style.opacity = '1';
+            }
+
+            // Clear arrow timeouts
+            if (arrowFadeTimeout) {
+                clearTimeout(arrowFadeTimeout);
+                arrowFadeTimeout = null;
+            }
+            arrowFadeTimeoutMove = null;
+
             // Ensure all overlays and dialogs are hidden
             document.getElementById('overlay').classList.remove('show');
             document.getElementById('promotionDialog').classList.remove('show');
@@ -1410,6 +1426,7 @@
             updateCapturedPieces();
             updateEvaluationBar();
             updateMoveCounter();
+            updateButtonStates();
             document.getElementById('moveHistory').innerHTML = '';
             document.getElementById('mobileMoveHistory').innerHTML = '';
             document.getElementById('hintText').style.display = 'none';
@@ -1792,21 +1809,31 @@
             }
 
             // Check if king passes through or ends in check
-            const tempBoard = JSON.parse(JSON.stringify(board));
+            const originalBoard = JSON.parse(JSON.stringify(board));
             const king = player === 'white' ? 'K' : 'k';
-            for (let col = fromCol; col !== toCol + step; col += step) {
-                // Restore board and move king to current position
-                board = JSON.parse(JSON.stringify(tempBoard));
-                board[fromRow][fromCol] = '';
-                board[fromRow][col] = king;
-                if (isInCheck(player)) {
-                    board = tempBoard;
-                    return false;
-                }
-            }
-            board = tempBoard;
 
-            return true;
+            try {
+                for (let col = fromCol; col !== toCol + step; col += step) {
+                    // Create test position without mutating original
+                    const testBoard = JSON.parse(JSON.stringify(originalBoard));
+                    testBoard[fromRow][fromCol] = '';
+                    testBoard[fromRow][col] = king;
+
+                    // Temporarily set board for check test
+                    board = testBoard;
+                    if (isInCheck(player)) {
+                        board = originalBoard;
+                        return false;
+                    }
+                }
+                // Restore original board
+                board = originalBoard;
+                return true;
+            } catch (error) {
+                // Ensure board is always restored on error
+                board = originalBoard;
+                return false;
+            }
         }
 
         // Make a move
@@ -1815,9 +1842,14 @@
             const capturedPiece = board[toRow][toCol];
             const pieceType = piece.toLowerCase();
 
-            // Detect en passant capture before saving state
+            // Save old en passant target before clearing
+            const oldEnPassantTarget = enPassantTarget;
+            // Clear en passant target (will be set again if pawn moves two squares)
+            enPassantTarget = null;
+
+            // Detect en passant capture before saving state (use old target)
             let enPassantCapture = null;
-            if (pieceType === 'p' && enPassantTarget && toRow === enPassantTarget.row && toCol === enPassantTarget.col) {
+            if (pieceType === 'p' && oldEnPassantTarget && toRow === oldEnPassantTarget.row && toCol === oldEnPassantTarget.col) {
                 const capturedPawnRow = currentPlayer === 'white' ? toRow + 1 : toRow - 1;
                 enPassantCapture = board[capturedPawnRow][toCol];
             }
@@ -1835,7 +1867,7 @@
                 wasCastling: wasCastling,
                 board: JSON.parse(JSON.stringify(board)),
                 castlingRights: JSON.parse(JSON.stringify(castlingRights)),
-                enPassantTarget: enPassantTarget,
+                enPassantTarget: oldEnPassantTarget, // Save the old target before it was cleared
                 halfMoveClock: halfMoveClock,
                 fullMoveNumber: fullMoveNumber
             });
@@ -1893,12 +1925,11 @@
                 }
             }
 
-            // Update en passant target
+            // Set en passant target if pawn moved two squares
             if (pieceType === 'p' && Math.abs(toRow - fromRow) === 2) {
                 enPassantTarget = { row: (fromRow + toRow) / 2, col: toCol };
-            } else {
-                enPassantTarget = null;
             }
+            // Otherwise enPassantTarget remains null (was cleared at start of function)
 
             // Update castling rights when king or rook moves
             if (pieceType === 'k') {
@@ -2037,6 +2068,7 @@
             // Check for 50-move rule (100 half-moves = 50 full moves)
             if (halfMoveClock >= 100) {
                 gameOver = true;
+                selectedSquare = null; // Clear selection
                 gameOverReason = '50-Move Rule Draw';
                 title.textContent = '50-Move Rule Draw';
                 message.textContent = '50 moves without a capture or pawn move. The game is a draw.';
@@ -2056,6 +2088,7 @@
                 const repetitions = positionHistory.filter(pos => pos === currentPosition).length;
                 if (repetitions >= 3) {
                     gameOver = true;
+                    selectedSquare = null; // Clear selection
                     gameOverReason = 'Draw by Repetition';
                     title.textContent = 'Draw by Repetition';
                     message.textContent = 'The same position occurred three times. The game is a draw.';
@@ -2074,6 +2107,7 @@
 
             if (moves.length === 0) {
                 gameOver = true;
+                selectedSquare = null; // Clear selection on game over
 
                 if (isInCheck(currentPlayer)) {
                     // Checkmate
@@ -2095,6 +2129,29 @@
                     overlay.classList.remove('show');
                     gameOverDiv.classList.remove('show');
                 }, 2000);
+                updateButtonStates();
+            }
+        }
+
+        // Update button states based on game mode and history
+        function updateButtonStates() {
+            const undoBtn = document.getElementById('undoBtn');
+            const hintBtn = document.getElementById('hintBtn');
+
+            if (undoBtn) {
+                // Disable undo in watch mode or if no moves
+                const canUndo = gameMode !== 'watch' && moveHistory.length > 0;
+                undoBtn.disabled = !canUndo;
+                undoBtn.style.opacity = canUndo ? '1' : '0.5';
+                undoBtn.style.cursor = canUndo ? 'pointer' : 'not-allowed';
+            }
+
+            if (hintBtn) {
+                // Disable hint in watch mode or if game over
+                const canHint = gameMode !== 'watch' && !gameOver;
+                hintBtn.disabled = !canHint;
+                hintBtn.style.opacity = canHint ? '1' : '0.5';
+                hintBtn.style.cursor = canHint ? 'pointer' : 'not-allowed';
             }
         }
 
@@ -2612,6 +2669,7 @@
 
         function getHint() {
             if (gameOver) return;
+            if (gameMode === 'watch') return;
 
             const hintText = document.getElementById('hintText');
             hintText.style.display = 'block';
@@ -2746,6 +2804,7 @@
             updateCapturedPieces();
             updateEvaluationBar();
             updateMoveCounter();
+            updateButtonStates();
         }
 
         function showInfo() {
@@ -2795,10 +2854,12 @@
             }
 
             newGame();
+            updateButtonStates();
         }
 
         function startWatchMatch() {
             if (gameMode !== 'watch') return;
+            if (watchMatchRunning) return; // Already running
 
             watchMatchRunning = true;
 
