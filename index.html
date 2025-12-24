@@ -1932,7 +1932,9 @@
             lastMove = { from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } };
 
             // Add to move history display (both desktop and mobile)
-            const moveNotation = `${PIECES[piece]} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + toCol)}${8 - toRow}`;
+            // Use hollow pieces for White's moves, solid for Black's moves
+            const pieceSymbol = currentPlayer === 'white' ? PIECES_HOLLOW[piece] : PIECES[piece];
+            const moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + toCol)}${8 - toRow}`;
             const moveDiv = document.createElement('div');
             moveDiv.textContent = `${fullMoveNumber}. ${moveNotation}`;
             const mobileMoveDiv = moveDiv.cloneNode(true);
