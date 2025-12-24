@@ -2499,6 +2499,71 @@
         }
 
         // Get hint for current player
+        // Draw hint arrow in different color
+        function drawHintArrow(fromRow, fromCol, toRow, toCol) {
+            const svg = document.getElementById('moveArrowSvg');
+
+            // Get actual square size from rendered board
+            const boardSquare = document.querySelector('.square');
+            const squareSize = boardSquare ? boardSquare.offsetWidth : 70;
+            const fromX = fromCol * squareSize + squareSize / 2;
+            const fromY = fromRow * squareSize + squareSize / 2;
+            const toX = toCol * squareSize + squareSize / 2;
+            const toY = toRow * squareSize + squareSize / 2;
+
+            // Create arrow line (gold/yellow color for hint)
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', fromX);
+            line.setAttribute('y1', fromY);
+            line.setAttribute('x2', toX);
+            line.setAttribute('y2', toY);
+            line.setAttribute('stroke', '#FFD700');
+            line.setAttribute('stroke-width', '4');
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('marker-end', 'url(#arrowhead-hint)');
+            line.classList.add('hint-arrow');
+
+            // Create start circle (gold/yellow)
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', fromX);
+            circle.setAttribute('cy', fromY);
+            circle.setAttribute('r', '6');
+            circle.setAttribute('fill', '#FFD700');
+            circle.classList.add('hint-arrow');
+
+            // Create arrowhead marker for hint if it doesn't exist
+            if (!svg.querySelector('#arrowhead-hint')) {
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                marker.setAttribute('id', 'arrowhead-hint');
+                marker.setAttribute('markerWidth', '10');
+                marker.setAttribute('markerHeight', '10');
+                marker.setAttribute('refX', '9');
+                marker.setAttribute('refY', '3');
+                marker.setAttribute('orient', 'auto');
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', '0 0, 10 3, 0 6');
+                polygon.setAttribute('fill', '#FFD700');
+                marker.appendChild(polygon);
+                defs.appendChild(marker);
+                svg.appendChild(defs);
+            }
+
+            svg.appendChild(line);
+            svg.appendChild(circle);
+
+            // Fade out and remove after 1.5 seconds
+            setTimeout(() => {
+                svg.classList.add('fade-out');
+                setTimeout(() => {
+                    const hintArrows = svg.querySelectorAll('.hint-arrow');
+                    hintArrows.forEach(el => el.remove());
+                    svg.classList.remove('fade-out');
+                    svg.style.opacity = '1';
+                }, 500); // Wait for fade transition
+            }, 1500);
+        }
+
         function getHint() {
             if (gameOver) return;
 
@@ -2515,6 +2580,10 @@
                     const toSquare = String.fromCharCode(97 + bestMove.move.to.col) + (8 - bestMove.move.to.row);
 
                     hintText.textContent = `Suggested move: ${PIECES[piece]} from ${fromSquare} to ${toSquare}`;
+
+                    // Draw hint arrow
+                    drawHintArrow(bestMove.move.from.row, bestMove.move.from.col,
+                                 bestMove.move.to.row, bestMove.move.to.col);
                 } else {
                     hintText.textContent = 'No legal moves available.';
                 }
