@@ -1143,6 +1143,11 @@
                         <option value="4">Hard (Depth 4)</option>
                     </select>
                 </div>
+                <div id="mobileWatchControls" style="margin-top: 15px; display: flex; gap: 5px;">
+                    <button id="mobileStartWatchBtn" onclick="startWatchMatch()" style="flex: 1; padding: 10px; font-size: 14px;">Start Match</button>
+                    <button id="mobilePauseWatchBtn" onclick="pauseWatchMatch()" style="flex: 1; padding: 10px; font-size: 14px; display: none;">Pause</button>
+                    <button id="mobileStopWatchBtn" onclick="stopWatchMatch()" style="flex: 1; padding: 10px; font-size: 14px; display: none;">Stop</button>
+                </div>
             </div>
 
             <h3 style="margin-top: 20px;">Settings</h3>
@@ -1281,6 +1286,11 @@
                             <option value="4">Hard (Depth 4)</option>
                         </select>
                     </div>
+                    <div id="watchControls" style="margin-top: 15px; display: flex; gap: 5px;">
+                        <button id="startWatchBtn" onclick="startWatchMatch()" style="flex: 1; padding: 8px; font-size: 12px;">Start Match</button>
+                        <button id="pauseWatchBtn" onclick="pauseWatchMatch()" style="flex: 1; padding: 8px; font-size: 12px; display: none;">Pause</button>
+                        <button id="stopWatchBtn" onclick="stopWatchMatch()" style="flex: 1; padding: 8px; font-size: 12px; display: none;">Stop</button>
+                    </div>
                 </div>
                 <div style="font-size: 11px; color: #888; margin-top: 5px;">
                     Higher depth = stronger but slower
@@ -1328,6 +1338,7 @@
         let positionHistory = [];
         let positionsEvaluated = 0;
         let positionUpdateInterval = null;
+        let watchMatchRunning = false;
 
         // Opening book - common opening moves
         const openingBook = {
@@ -1559,7 +1570,7 @@
                     if (!gameOver) {
                         if (gameMode === 'ai' && currentPlayer === 'black') {
                             setTimeout(makeAIMove, 500);
-                        } else if (gameMode === 'watch' && !gameOver) {
+                        } else if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
                             setTimeout(makeAIMove, 1000);
                         }
                     }
@@ -2189,7 +2200,7 @@
                             bookMove.promotion);
                     renderBoard();
 
-                    if (gameMode === 'watch' && !gameOver) {
+                    if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
                         setTimeout(makeAIMove, 1000);
                     }
                     return;
@@ -2271,7 +2282,7 @@
                     // Show think time in status
                     console.log(`AI thought for ${thinkTime} seconds`);
 
-                    if (gameMode === 'watch' && !gameOver) {
+                    if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
                         setTimeout(makeAIMove, 1000);
                     }
                 }
@@ -2621,6 +2632,25 @@
             document.getElementById('overlay').classList.remove('show');
             document.getElementById('gameOver').classList.remove('show');
             initGame();
+
+            // Reset watch mode controls if in watch mode
+            if (gameMode === 'watch') {
+                watchMatchRunning = false;
+                document.getElementById('startWatchBtn').style.display = 'block';
+                document.getElementById('pauseWatchBtn').style.display = 'none';
+                document.getElementById('stopWatchBtn').style.display = 'none';
+                document.getElementById('pauseWatchBtn').textContent = 'Pause';
+
+                const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+                const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+                const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+                if (mobileStartBtn) mobileStartBtn.style.display = 'block';
+                if (mobilePauseBtn) {
+                    mobilePauseBtn.style.display = 'none';
+                    mobilePauseBtn.textContent = 'Pause';
+                }
+                if (mobileStopBtn) mobileStopBtn.style.display = 'none';
+            }
         }
 
         function undoSingleMove() {
@@ -2729,18 +2759,96 @@
                 watchDiff.style.display = 'block';
                 if (mobileSingleDiff) mobileSingleDiff.style.display = 'none';
                 if (mobileWatchDiff) mobileWatchDiff.style.display = 'block';
+
+                // Stop any running match and show Start button
+                watchMatchRunning = false;
+                document.getElementById('startWatchBtn').style.display = 'block';
+                document.getElementById('pauseWatchBtn').style.display = 'none';
+                document.getElementById('stopWatchBtn').style.display = 'none';
+                const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+                const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+                const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+                if (mobileStartBtn) mobileStartBtn.style.display = 'block';
+                if (mobilePauseBtn) mobilePauseBtn.style.display = 'none';
+                if (mobileStopBtn) mobileStopBtn.style.display = 'none';
             } else {
                 singleDiff.style.display = 'block';
                 watchDiff.style.display = 'none';
                 if (mobileSingleDiff) mobileSingleDiff.style.display = 'block';
                 if (mobileWatchDiff) mobileWatchDiff.style.display = 'none';
+                watchMatchRunning = false;
             }
 
             newGame();
+        }
 
-            if (mode === 'watch') {
-                setTimeout(makeAIMove, 1000);
+        function startWatchMatch() {
+            if (gameMode !== 'watch') return;
+
+            watchMatchRunning = true;
+
+            // Update button visibility (desktop)
+            document.getElementById('startWatchBtn').style.display = 'none';
+            document.getElementById('pauseWatchBtn').style.display = 'block';
+            document.getElementById('stopWatchBtn').style.display = 'block';
+
+            // Update button visibility (mobile)
+            const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+            const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+            const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+            if (mobileStartBtn) mobileStartBtn.style.display = 'none';
+            if (mobilePauseBtn) mobilePauseBtn.style.display = 'block';
+            if (mobileStopBtn) mobileStopBtn.style.display = 'block';
+
+            // Start the match
+            setTimeout(makeAIMove, 500);
+        }
+
+        function pauseWatchMatch() {
+            if (gameMode !== 'watch') return;
+
+            watchMatchRunning = !watchMatchRunning;
+
+            // Update button text (desktop)
+            const pauseBtn = document.getElementById('pauseWatchBtn');
+            pauseBtn.textContent = watchMatchRunning ? 'Pause' : 'Resume';
+
+            // Update button text (mobile)
+            const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+            if (mobilePauseBtn) {
+                mobilePauseBtn.textContent = watchMatchRunning ? 'Pause' : 'Resume';
             }
+
+            // Resume if needed
+            if (watchMatchRunning) {
+                setTimeout(makeAIMove, 500);
+            }
+        }
+
+        function stopWatchMatch() {
+            if (gameMode !== 'watch') return;
+
+            watchMatchRunning = false;
+
+            // Update button visibility (desktop)
+            document.getElementById('startWatchBtn').style.display = 'block';
+            document.getElementById('pauseWatchBtn').style.display = 'none';
+            document.getElementById('stopWatchBtn').style.display = 'none';
+
+            // Update button visibility (mobile)
+            const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+            const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+            const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+            if (mobileStartBtn) mobileStartBtn.style.display = 'block';
+            if (mobilePauseBtn) mobilePauseBtn.style.display = 'none';
+            if (mobileStopBtn) mobileStopBtn.style.display = 'none';
+
+            // Reset pause button text
+            document.getElementById('pauseWatchBtn').textContent = 'Pause';
+            if (mobilePauseBtn) mobilePauseBtn.textContent = 'Pause';
+
+            // Reset the game
+            newGame();
         }
 
         function updateDifficulty() {
