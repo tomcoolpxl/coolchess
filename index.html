@@ -1481,6 +1481,12 @@
                 // Set new timeout for this move
                 arrowFadeTimeout = setTimeout(() => {
                     svg.classList.add('fade-out');
+                    // Remove arrows after fade completes
+                    setTimeout(() => {
+                        const arrows = svg.querySelectorAll('line, circle');
+                        arrows.forEach(el => el.remove());
+                        svg.classList.remove('fade-out');
+                    }, 500); // Wait for 0.5s fade transition to complete
                 }, 4000);
             }
 
