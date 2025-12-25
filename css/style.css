@@ -243,6 +243,8 @@ body {
 
 .piece-white {
     color: #ffffff !important;
+    -webkit-text-stroke: 1px #000000;
+    text-stroke: 1px #000000;
 }
 
 .piece-black {
