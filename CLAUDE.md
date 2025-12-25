@@ -7,13 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is a browser-based chess game with separate HTML, CSS, and JavaScript files. The game features:
 - Full chess rules implementation (castling, en passant, pawn promotion, 50-move rule, threefold repetition)
 - AI opponent using minimax algorithm with alpha-beta pruning
-- Three game modes: Player vs Player, Player vs AI, AI vs AI (watch mode with start/pause/stop controls)
+- Two game modes: Player vs AI, AI vs AI (watch mode)
+- Unified New Game dialog for mode and difficulty selection
 - Position evaluation with visual evaluation bar
 - Opening book for common opening moves (11 pre-programmed moves)
 - Info dialog explaining how the AI works
 - Smart undo that reverts 2 moves (opponent + yours)
 - Hint feature with visual arrow showing suggested move
-- Auto-hiding game over dialog
 
 ## Running the Application
 
@@ -25,18 +25,20 @@ Simply open `index.html` in any modern web browser. No build process, server, or
 
 ```
 coolchess/
-├── index.html          # HTML structure only (~260 lines)
+├── index.html          # HTML structure only (~200 lines)
 ├── css/
-│   └── style.css       # All styling (~1070 lines)
+│   └── style.css       # All styling (~1200 lines)
 ├── js/
 │   ├── constants.js    # Shared constants (~45 lines)
-│   ├── engine.js       # Core game logic (~600 lines)
+│   ├── engine.js       # Core game logic, pure functions (~640 lines)
 │   ├── ai.js           # AI/minimax/evaluation (~410 lines)
-│   ├── ui.js           # Rendering & controls (~850 lines)
+│   ├── ui.js           # Rendering & controls (~880 lines)
 │   └── main.js         # Initialization (~7 lines)
 ├── CLAUDE.md           # This documentation
 └── README.md           # Project readme
 ```
+
+### Module Responsibilities
 
 1. **index.html**: DOM structure with links to external CSS and JS files
 
@@ -47,25 +49,28 @@ coolchess/
    - Timing constants (arrow fade, AI delays)
    - `openingBook` - Pre-programmed opening moves
 
-4. **js/engine.js**: Core game logic
+4. **js/engine.js**: Core game logic (pure, no DOM manipulation)
    - Game state variables (board, currentPlayer, castlingRights, etc.)
    - Move validation (`isValidMove`, `isPieceMovementValid`, `canCastle`)
-   - Move execution (`makeMove`, `undoSingleMove`)
-   - Game rules (`isInCheck`, `checkGameOver`, `getAllLegalMoves`)
+   - Move execution (`makeMove` returns result object, `undoSingleMove`)
+   - Game rules (`isInCheck`, `checkGameOver` returns state, `getAllLegalMoves`)
+   - Promotion handling (`completePromotion`)
 
 5. **js/ai.js**: AI and evaluation
-   - AI difficulty settings
+   - AI difficulty settings (`aiDifficulty`, `aiDifficultyWhite`, `aiDifficultyBlack`)
    - `minimax()` with alpha-beta pruning
    - `evaluateBoard()` with piece-square tables
    - `getOpeningBookMove()` for opening book
+   - Uses UI wrappers (`executeMoveWithUI`) for moves
 
 6. **js/ui.js**: Rendering and user interface
-   - Board rendering (`renderBoard`, `drawMoveArrow`)
-   - UI updates (`updateStatus`, `updateEvaluationBar`)
+   - Board rendering (`renderBoard`, `drawMoveArrow`, `drawHintArrow`)
+   - UI updates (`updateStatus`, `updateEvaluationBar`, `updateGameInfo`)
    - User input (`handleSquareClick`, `getHint`)
-   - Game controls (`newGame`, `undoMove`, `setMode`)
-   - Settings handlers (difficulty, legal moves toggle)
-   - Dialog management (info, mobile menu)
+   - Game controls (`newGame`, `undoMove`)
+   - New Game dialog (`showNewGameDialog`, `startNewGame`, `cancelNewGame`, `selectGameMode`)
+   - UI wrappers for engine (`executeMoveWithUI`, `executePromotionWithUI`)
+   - Dialog management (info, mobile menu, promotion, game over)
 
 7. **js/main.js**: Application entry point
    - Calls `initGame()` and `initUI()` on load
@@ -77,68 +82,57 @@ coolchess/
 
 - **Main Board Area**: 8x8 chessboard with coordinate labels and evaluation bar
 - **Below Board Controls**: Quick actions (undo, hint) and captured pieces display
-- **Sidebar**: Game status, mode selection, AI difficulty settings, new game button
+- **Sidebar**: Game status with game info display, move history, New Game button
 - **Info Button**: In sidebar title, opens dialog explaining minimax and opening book
-- **Watch Mode Controls**: Start/Pause/Resume/Stop buttons for AI vs AI matches (separate difficulty selectors for White and Black AI)
+- **New Game Dialog**: Modal for selecting game mode and AI difficulty
 
 ### Core Game State
 
-The game state is managed through global variables:
+The game state is managed through global variables in engine.js:
 - `board`: 8x8 array representing the chessboard
 - `currentPlayer`: 'white' or 'black'
-- `gameMode`: 'pvp', 'ai', or 'watch'
+- `gameMode`: 'ai' or 'watch'
 - `moveHistory`: Array of move objects for undo functionality
 - `castlingRights`: Tracks castling availability for both sides
 - `enPassantTarget`: Tracks en passant capture opportunity
 - `halfMoveClock`: For 50-move rule
 - `positionHistory`: For threefold repetition detection
-- `watchMatchRunning`: Controls AI vs AI match state (running/paused)
-- `aiDifficultyWhite`/`aiDifficultyBlack`: Separate difficulty settings for watch mode
-- `arrowFadeTimeout`/`arrowRemovalTimeout`: Manage move arrow fade animations
-- `gameOverDialogTimeout`: Controls auto-hide of game over dialog
-- `isSyncingUI`: Guard flag preventing circular updates between mobile/desktop UI
+
+UI state in ui.js:
+- `watchMatchRunning`: Controls AI vs AI match state
+- `selectedDialogMode`: Tracks mode selection in New Game dialog
+- Arrow timeout variables for fade animations
 
 ### Key Functions
 
-**Game Logic**:
+**Engine Functions** (pure, return results):
 - `initGame()`: Initialize/reset game state
 - `isValidMove()`: Validates if a move is legal
-- `isPieceMovementValid()`: Checks piece-specific movement rules
-- `makeMove()`: Executes a move and updates state
-- `isInCheck()`: Determines if a player is in check
+- `makeMove()`: Returns `{success, needsPromotion, moveInfo, gameOverResult}`
+- `completePromotion()`: Returns `{success, moveInfo, gameOverResult}`
+- `undoSingleMove()`: Returns `{success, undoneMove}`
+- `checkGameOver()`: Returns `{isOver, reason, message, winner}`
 - `getAllLegalMoves()`: Generates all legal moves for a player
-- `checkGameOver()`: Detects checkmate, stalemate, draws
 
-**AI System**:
-- `makeAIMove()`: Entry point for AI move generation
+**AI Functions**:
+- `makeAIMove()`: Entry point for AI move generation (uses UI wrappers)
 - `minimax()`: Minimax algorithm with alpha-beta pruning
-  - White maximizes (isMaximizing=true)
-  - Black minimizes (isMaximizing=false)
-  - Difficulty levels 1-4 control search depth
-- `evaluateBoard()`: Position evaluation function
-  - Material counting with piece values
-  - Piece-square tables for positional evaluation
-  - Mobility evaluation (number of legal moves)
-  - King safety bonuses/penalties
+- `evaluateBoard()`: Position evaluation with piece-square tables
 - `getOpeningBookMove()`: Selects moves from opening book
 
-**Rendering**:
-- `renderBoard()`: Renders the chessboard and pieces
-- `drawMoveArrow()`: Draws SVG arrow showing last move (orange with fade after 4s)
-- `highlightLegalMoves()`: Highlights valid moves for selected piece
-- Hint arrows: Red dotted line drawn via `getHint()` with `.hint-arrow` class
+**UI Wrapper Functions**:
+- `executeMoveWithUI()`: Calls engine makeMove + updates all UI
+- `executePromotionWithUI()`: Calls engine completePromotion + updates all UI
 
-**UI Controls**:
-- `newGame()`: Start a new game
-- `undoMove()`: Undoes 2 moves (opponent + yours) to return to your turn
-- `undoSingleMove()`: Helper that undoes a single move
-- `setMode()`: Change game mode
+**UI Control Functions**:
+- `newGame()`: Opens New Game dialog
+- `showNewGameDialog()`: Display the New Game modal
+- `startNewGame()`: Read dialog values, init game, start if AI vs AI
+- `cancelNewGame()`: Close dialog, resume AI vs AI if was running
+- `selectGameMode()`: Toggle mode in dialog, show/hide difficulty sections
+- `updateGameInfo()`: Update game info display with current mode/difficulty
+- `undoMove()`: Undoes 2 moves to return to player's turn
 - `getHint()`: Calculate and display suggested move with visual arrow
-- `showInfo()`: Opens info dialog explaining how the AI works
-- `closeInfo()`: Closes info dialog
-- `startWatchMatch()`: Start AI vs AI match in watch mode
-- `pauseWatchMatch()`: Pause/resume AI vs AI match
-- `stopWatchMatch()`: Stop AI vs AI match and reset game
 
 ### Chess Rules Implementation
 
@@ -160,6 +154,8 @@ Search depth controls difficulty:
 - Depth 3: Medium (looks 3 moves ahead)
 - Depth 4: Hard (looks 4 moves ahead)
 
+In AI vs AI mode, White and Black can have different difficulties.
+
 ### Opening Book
 
 The opening book contains 11 pre-programmed moves that randomize for variety:
@@ -170,83 +166,44 @@ The opening book contains 11 pre-programmed moves that randomize for variety:
 ## Chess Piece Rendering
 
 **On the Board**:
-- All pieces use solid Unicode chess characters (♚♛♜♝♞♟) for visual consistency
-- White pieces are styled with `color: #ffffff` (white)
-- Black pieces are styled with `color: #000000` (black)
-- Classes `.piece-white` and `.piece-black` control colors with `!important` to override dark mode
+- All pieces use solid Unicode chess characters (♚♛♜♝♞♟)
+- White pieces styled with `color: #ffffff`
+- Black pieces styled with `color: #000000`
+- Classes `.piece-white` and `.piece-black` with `!important`
 
 **In Move History and Captured Pieces**:
-- White's moves use hollow pieces (♔♕♖♗♘♙) in move notation
-- Black's moves use solid pieces (♚♛♜♝♞♟) in move notation
-- Captured black pieces displayed as hollow, captured white pieces as solid
+- White's moves use hollow pieces (♔♕♖♗♘♙)
+- Black's moves use solid pieces (♚♛♜♝♞♟)
 
 ## Mobile Responsiveness
 
 The application includes full mobile support with:
-- **Mobile Header**: Sticky header with menu button, title, and info button
-- **Mobile Menu**: Side panel with game mode, difficulty, and settings
-- **Real-time Sync**: Desktop and mobile UI elements stay synchronized bidirectionally
+- **Mobile Header**: Sticky header with menu button, title, info button, game info, status, New Game
+- **Mobile Menu**: Shows move history only (simplified)
+- **New Game Dialog**: Same dialog works on mobile (responsive width)
 - **Touch Optimizations**: Proper touch targets and tap highlight prevention
 - **Responsive Layout**: Board and controls adapt to screen size
 
 ## Modifying the Game
 
-**To adjust AI strength** (in `js/chess.js`):
+**To adjust AI strength** (in `js/ai.js`):
 - Modify piece values in `evaluateBoard()`
 - Adjust piece-square tables
 - Modify mobility weight calculation
-
-**To add new game modes** (in `js/chess.js`):
-- Update `setMode()` function
-- Add mode handling in `handleSquareClick()`
 
 **To customize appearance** (in `css/style.css`):
 - Board colors: `.square.light` and `.square.dark` classes
 - Piece size: `.square` font-size
 - Highlight colors: `.selected`, `.legal-move` classes
 
-## Bug Fixes & Improvements History
-
-### Core Game Logic
-- **Hint Function**: Fixed incorrect hint suggestions for Black player (was maximizing White's position)
-- **Position History**: Position history properly cleaned during undo operations
-- **Pawn Promotion**: Removed duplicate position tracking and move counter increments during promotion
-- **Castling Validation**: Fixed path checking and king-through-check validation logic
-- **En Passant Undo**: En passant captures properly tracked and restored during undo
-- **Castling Undo**: Castling moves fully tracked (rook position restored via board state)
-- **Rook Capture**: Castling rights properly updated when rooks are captured
-- **Minimax State**: Special game state (castling rights, en passant) saved/restored in minimax search
-
-### UI/UX Enhancements
-- **Hint Arrow**: Visual red dotted line arrow showing suggested move
-- **Move Arrows**: Smooth fade-out transition with proper timeout handling
-- **Game Over Dialog**: Auto-hides after brief display, repositioned to top of screen
-- **Hollow Pieces**: White moves/captured pieces use hollow Unicode characters for differentiation
-- **AI Thinking**: Smoother fade transitions for thinking indicator
-
-### Watch Mode (AI vs AI)
-- **Match Controls**: Start/Pause/Resume/Stop buttons for controlling AI matches
-- **Separate Difficulty**: Independent difficulty settings for White and Black AI
-- **Mobile Controls**: Full watch mode controls available on mobile
-
-### Mobile Enhancements
-- **Bidirectional Sync**: Mobile and desktop UI elements properly synchronized in both directions
-- **Real-time History**: Move history updates in real-time on both desktop and mobile
-- **Touch Targets**: Proper button sizes (min 44px) and touch action handling
-- **Mobile AI Thinking**: Dedicated mobile thinking indicator with fade transition
-
-### Accessibility
-- **ARIA Labels**: Added to all interactive buttons for screen reader support
-- **Info Button**: Circular "i" button with consistent rendering across platforms
-
 ## Known Behaviors
 
+- Legal moves always shown when piece selected (no toggle)
 - AI auto-promotes pawns to queen
 - Move arrows fade after 4 seconds with smooth CSS transition
 - AI thinking indicator shows current depth during calculation
 - Position evaluation capped at ±2000 centipawns for display
 - Undo reverts 2 moves to return player to their turn (disabled in watch mode)
-- Game over dialog auto-hides after a short delay
 - Hint arrows shown as red dotted lines, fade out after timeout
-- Watch mode requires clicking "Start Match" to begin AI vs AI play
-- Watch mode can be paused/resumed or stopped entirely
+- AI vs AI starts automatically when you click Start Game in dialog
+- Clicking New Game during AI vs AI pauses the match; Cancel resumes it
