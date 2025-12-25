@@ -432,7 +432,10 @@ function showGameOverDialog(gameOverResult) {
     const message = document.getElementById('gameOverMessage');
 
     title.textContent = gameOverResult.reason;
-    message.textContent = gameOverResult.message;
+    
+    // Format nodes evaluated with thousands separator
+    const formattedNodes = nodesEvaluated.toLocaleString();
+    message.textContent = gameOverResult.message + `\n\nAI evaluated ${formattedNodes} positions`;
 
     overlay.classList.add('show');
     gameOverDialog.classList.add('show');

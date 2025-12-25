@@ -6,6 +6,7 @@
 let aiDifficulty = 3;
 let aiDifficultyWhite = 3;
 let aiDifficultyBlack = 3;
+let nodesEvaluated = 0; // Track total nodes evaluated by AI
 
 // ============================================================================
 // Transposition Table
@@ -262,6 +263,7 @@ function simulateMoveForMinimax(move, player) {
 function minimax(depth, player, alpha, beta, isMaximizing) {
     const originalAlpha = alpha;
     const hash = computeHash();
+    nodesEvaluated++; // Count this node evaluation
 
     // Transposition table lookup
     const ttHit = ttLookup(hash, depth, alpha, beta);

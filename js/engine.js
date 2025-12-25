@@ -21,6 +21,7 @@ let gameOverReason = '';
 
 // Initialize the game to starting position
 function initGame() {
+    nodesEvaluated = 0; // Reset AI evaluation counter
     board = [
         ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
         ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
