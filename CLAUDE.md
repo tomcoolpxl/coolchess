@@ -25,32 +25,53 @@ Simply open `index.html` in any modern web browser. No build process, server, or
 
 ```
 coolchess/
-├── index.html          # HTML structure only (~250 lines)
+├── index.html          # HTML structure only (~260 lines)
 ├── css/
 │   └── style.css       # All styling (~1070 lines)
 ├── js/
-│   └── chess.js        # Game logic, AI, UI (~1980 lines)
+│   ├── constants.js    # Shared constants (~45 lines)
+│   ├── engine.js       # Core game logic (~600 lines)
+│   ├── ai.js           # AI/minimax/evaluation (~410 lines)
+│   ├── ui.js           # Rendering & controls (~850 lines)
+│   └── main.js         # Initialization (~7 lines)
 ├── CLAUDE.md           # This documentation
 └── README.md           # Project readme
 ```
 
-1. **index.html**: DOM structure with:
-   - Board container with chessboard and evaluation bar
-   - Controls below board (undo, hint, captured pieces)
-   - Sidebar with title, game status, mode selection, AI difficulty, settings
-   - Dialogs (promotion, game over, info)
-   - Links to external CSS and JS files
+1. **index.html**: DOM structure with links to external CSS and JS files
 
-2. **css/style.css**: All styling including:
-   - Board layout and pieces
-   - Animations and transitions
-   - Dialogs and info panel
-   - Mobile responsive styles
+2. **css/style.css**: All styling (board, pieces, animations, dialogs, mobile)
 
-3. **js/chess.js**: All JavaScript including:
-   - Game state and logic
-   - AI (minimax with alpha-beta pruning)
-   - Rendering and UI controls
+3. **js/constants.js**: Shared constants
+   - `PIECES` / `PIECES_HOLLOW` - Unicode chess symbols
+   - Timing constants (arrow fade, AI delays)
+   - `openingBook` - Pre-programmed opening moves
+
+4. **js/engine.js**: Core game logic
+   - Game state variables (board, currentPlayer, castlingRights, etc.)
+   - Move validation (`isValidMove`, `isPieceMovementValid`, `canCastle`)
+   - Move execution (`makeMove`, `undoSingleMove`)
+   - Game rules (`isInCheck`, `checkGameOver`, `getAllLegalMoves`)
+
+5. **js/ai.js**: AI and evaluation
+   - AI difficulty settings
+   - `minimax()` with alpha-beta pruning
+   - `evaluateBoard()` with piece-square tables
+   - `getOpeningBookMove()` for opening book
+
+6. **js/ui.js**: Rendering and user interface
+   - Board rendering (`renderBoard`, `drawMoveArrow`)
+   - UI updates (`updateStatus`, `updateEvaluationBar`)
+   - User input (`handleSquareClick`, `getHint`)
+   - Game controls (`newGame`, `undoMove`, `setMode`)
+   - Settings handlers (difficulty, legal moves toggle)
+   - Dialog management (info, mobile menu)
+
+7. **js/main.js**: Application entry point
+   - Calls `initGame()` and `initUI()` on load
+
+**Load Order**: Scripts must load in this order due to dependencies:
+`constants.js` → `engine.js` → `ai.js` → `ui.js` → `main.js`
 
 ### Layout Structure
 

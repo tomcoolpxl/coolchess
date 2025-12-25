@@ -1,0 +1,848 @@
+// ============================================================================
+// UI - Rendering and user interface controls
+// ============================================================================
+
+// UI state variables (global)
+let arrowFadeTimeout = null;
+let arrowFadeTimeoutMove = null;
+let arrowRemovalTimeout = null;
+let hintArrowTimeout = null;
+let hintArrowRemovalTimeout = null;
+let gameOverDialogTimeout = null;
+let aiMoveTimeout = null;
+let watchMatchRunning = false;
+let showLegalMovesEnabled = true;
+let isSyncingUI = false;
+
+// ============================================================================
+// RENDERING
+// ============================================================================
+
+// Render the chessboard
+function renderBoard() {
+    const boardWrapper = document.querySelector('.board-with-coords');
+    const chessboard = document.getElementById('chessboard');
+    chessboard.innerHTML = '';
+
+    // Remove old coordinates
+    document.querySelectorAll('.coord-label').forEach(el => el.remove());
+
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const square = document.createElement('div');
+            square.className = 'square ' + ((row + col) % 2 === 0 ? 'light' : 'dark');
+            square.dataset.row = row;
+            square.dataset.col = col;
+
+            // Highlight last move
+            if (lastMove &&
+                ((lastMove.from.row === row && lastMove.from.col === col) ||
+                 (lastMove.to.row === row && lastMove.to.col === col))) {
+                square.classList.add('last-move');
+            }
+
+            const piece = board[row][col];
+            if (piece) {
+                const pieceSpan = document.createElement('span');
+                const isWhitePiece = piece === piece.toUpperCase();
+                pieceSpan.className = isWhitePiece ? 'piece piece-white' : 'piece piece-black';
+                pieceSpan.textContent = PIECES[piece];
+                square.appendChild(pieceSpan);
+            }
+
+            // Add coordinates to first column and last row
+            if (col === 0) {
+                const rankLabel = document.createElement('div');
+                rankLabel.className = 'coord-label coord-rank';
+                rankLabel.textContent = 8 - row;
+                square.appendChild(rankLabel);
+            }
+            if (row === 7) {
+                const fileLabel = document.createElement('div');
+                fileLabel.className = 'coord-label coord-file';
+                fileLabel.textContent = String.fromCharCode(97 + col);
+                square.appendChild(fileLabel);
+            }
+
+            square.addEventListener('click', () => handleSquareClick(row, col));
+            chessboard.appendChild(square);
+        }
+    }
+
+    // Highlight king if in check
+    if (isInCheck(currentPlayer)) {
+        const kingPos = findKing(currentPlayer);
+        if (kingPos) {
+            const kingSquare = document.querySelector(`[data-row="${kingPos.row}"][data-col="${kingPos.col}"]`);
+            if (kingSquare) {
+                kingSquare.classList.add('check');
+            }
+        }
+    }
+
+    // Draw arrow for last move
+    drawMoveArrow();
+}
+
+// Draw arrow showing last move
+function drawMoveArrow() {
+    const svg = document.getElementById('moveArrowSvg');
+
+    // Remove old arrows (including hint arrows)
+    const oldArrows = svg.querySelectorAll('line, circle, .hint-arrow');
+    oldArrows.forEach(el => el.remove());
+
+    // Clear hint arrow timeouts when move is made
+    if (hintArrowTimeout) {
+        clearTimeout(hintArrowTimeout);
+        hintArrowTimeout = null;
+    }
+    if (hintArrowRemovalTimeout) {
+        clearTimeout(hintArrowRemovalTimeout);
+        hintArrowRemovalTimeout = null;
+    }
+
+    // Clear hint text when a move is made
+    const hintText = document.getElementById('hintText');
+    if (hintText) {
+        hintText.style.display = 'none';
+        hintText.textContent = '';
+    }
+
+    if (!lastMove) {
+        if (arrowFadeTimeout) {
+            clearTimeout(arrowFadeTimeout);
+            arrowFadeTimeout = null;
+            arrowFadeTimeoutMove = null;
+        }
+        return;
+    }
+
+    // Check if this is a new move
+    const moveKey = `${lastMove.from.row},${lastMove.from.col}->${lastMove.to.row},${lastMove.to.col}`;
+    const isNewMove = moveKey !== arrowFadeTimeoutMove;
+
+    if (isNewMove) {
+        if (arrowFadeTimeout) clearTimeout(arrowFadeTimeout);
+        if (arrowRemovalTimeout) clearTimeout(arrowRemovalTimeout);
+        svg.classList.remove('fade-out');
+        svg.style.opacity = '1';
+        arrowFadeTimeoutMove = moveKey;
+
+        arrowFadeTimeout = setTimeout(() => {
+            svg.classList.add('fade-out');
+            arrowRemovalTimeout = setTimeout(() => {
+                const arrows = svg.querySelectorAll('line, circle');
+                arrows.forEach(el => el.remove());
+                svg.classList.remove('fade-out');
+                arrowRemovalTimeout = null;
+            }, ARROW_FADE_DURATION);
+        }, ARROW_FADE_DELAY);
+    }
+
+    // Get actual square size from rendered board
+    const boardSquare = document.querySelector('.square');
+    const squareSize = boardSquare ? boardSquare.offsetWidth : 70;
+    const fromX = lastMove.from.col * squareSize + squareSize / 2;
+    const fromY = lastMove.from.row * squareSize + squareSize / 2;
+    const toX = lastMove.to.col * squareSize + squareSize / 2;
+    const toY = lastMove.to.row * squareSize + squareSize / 2;
+
+    // Scale arrow elements based on square size
+    const circleRadius = squareSize / 8.75;
+    const strokeWidth = squareSize / 14;
+
+    // Draw start circle
+    const startCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    startCircle.setAttribute('cx', fromX);
+    startCircle.setAttribute('cy', fromY);
+    startCircle.setAttribute('r', circleRadius.toString());
+    startCircle.setAttribute('fill', 'rgba(255, 170, 0, 0.5)');
+    startCircle.setAttribute('stroke', 'rgba(255, 140, 0, 0.7)');
+    startCircle.setAttribute('stroke-width', '1.5');
+    svg.appendChild(startCircle);
+
+    // Draw arrow line
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    arrow.setAttribute('x1', fromX);
+    arrow.setAttribute('y1', fromY);
+    arrow.setAttribute('x2', toX);
+    arrow.setAttribute('y2', toY);
+    arrow.setAttribute('stroke', 'rgba(255, 170, 0, 0.7)');
+    arrow.setAttribute('stroke-width', strokeWidth.toString());
+    arrow.setAttribute('marker-end', 'url(#arrowhead)');
+    arrow.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(arrow);
+}
+
+// Draw hint arrow in different color
+function drawHintArrow(fromRow, fromCol, toRow, toCol) {
+    const svg = document.getElementById('moveArrowSvg');
+
+    const boardSquare = document.querySelector('.square');
+    const squareSize = boardSquare ? boardSquare.offsetWidth : 70;
+    const fromX = fromCol * squareSize + squareSize / 2;
+    const fromY = fromRow * squareSize + squareSize / 2;
+    const toX = toCol * squareSize + squareSize / 2;
+    const toY = toRow * squareSize + squareSize / 2;
+
+    // Create arrow line (red dashed)
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', fromX);
+    line.setAttribute('y1', fromY);
+    line.setAttribute('x2', toX);
+    line.setAttribute('y2', toY);
+    line.setAttribute('stroke', '#FF0000');
+    line.setAttribute('stroke-width', '4');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('stroke-dasharray', '8,4');
+    line.setAttribute('marker-end', 'url(#arrowhead-hint)');
+    line.classList.add('hint-arrow');
+
+    // Create start circle (red)
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', fromX);
+    circle.setAttribute('cy', fromY);
+    circle.setAttribute('r', '6');
+    circle.setAttribute('fill', '#FF0000');
+    circle.classList.add('hint-arrow');
+
+    // Create arrowhead marker for hint if it doesn't exist
+    if (!svg.querySelector('#arrowhead-hint')) {
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', 'arrowhead-hint');
+        marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '10');
+        marker.setAttribute('refX', '9');
+        marker.setAttribute('refY', '3');
+        marker.setAttribute('orient', 'auto');
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        polygon.setAttribute('points', '0 0, 10 3, 0 6');
+        polygon.setAttribute('fill', '#FF0000');
+        marker.appendChild(polygon);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+    }
+
+    svg.appendChild(line);
+    svg.appendChild(circle);
+
+    // Clear existing hint timeouts
+    if (hintArrowTimeout) clearTimeout(hintArrowTimeout);
+    if (hintArrowRemovalTimeout) clearTimeout(hintArrowRemovalTimeout);
+
+    // Fade out and remove after delay
+    hintArrowTimeout = setTimeout(() => {
+        const hintArrows = svg.querySelectorAll('.hint-arrow');
+        hintArrows.forEach(el => {
+            el.style.transition = 'opacity 0.5s';
+            el.style.opacity = '0';
+        });
+        hintArrowRemovalTimeout = setTimeout(() => {
+            const arrows = svg.querySelectorAll('.hint-arrow');
+            arrows.forEach(el => el.remove());
+            hintArrowTimeout = null;
+            hintArrowRemovalTimeout = null;
+        }, ARROW_FADE_DURATION);
+    }, HINT_ARROW_DISPLAY_TIME);
+}
+
+// Highlight legal moves for selected piece
+function highlightLegalMoves(row, col) {
+    if (!showLegalMovesEnabled) return;
+
+    const moves = getLegalMovesForPiece(row, col);
+    moves.forEach(move => {
+        const square = document.querySelector(`[data-row="${move.row}"][data-col="${move.col}"]`);
+        if (board[move.row][move.col]) {
+            square.classList.add('legal-capture');
+        } else {
+            square.classList.add('legal-move');
+        }
+    });
+
+    const selectedSq = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+    selectedSq.classList.add('selected');
+}
+
+// Show promotion dialog
+function showPromotionDialog(row, col) {
+    const isWhite = currentPlayer === 'white';
+    const pieces = isWhite ? ['Q', 'R', 'B', 'N'] : ['q', 'r', 'b', 'n'];
+    const dialog = document.getElementById('promotionDialog');
+    const overlay = document.getElementById('overlay');
+    const piecesContainer = document.getElementById('promotionPieces');
+
+    piecesContainer.innerHTML = '';
+    pieces.forEach(piece => {
+        const div = document.createElement('div');
+        div.className = 'promotion-piece';
+        div.textContent = PIECES[piece];
+        div.onclick = () => {
+            dialog.classList.remove('show');
+            overlay.classList.remove('show');
+
+            board[row][col] = piece;
+            pendingPromotion = null;
+
+            if (moveHistory.length > 0) {
+                const lastHistoryMove = moveHistory[moveHistory.length - 1];
+                const fromRow = lastHistoryMove.from.row;
+                const fromCol = lastHistoryMove.from.col;
+                const originalPiece = lastHistoryMove.piece;
+
+                lastMove = { from: { row: fromRow, col: fromCol }, to: { row, col } };
+
+                const pieceSymbol = currentPlayer === 'white' ? PIECES_HOLLOW[originalPiece] : PIECES[originalPiece];
+                const moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + col)}${8 - row}`;
+                const moveDiv = document.createElement('div');
+                moveDiv.textContent = `${fullMoveNumber}. ${moveNotation}`;
+                const mobileMoveDiv = moveDiv.cloneNode(true);
+                document.getElementById('moveHistory').appendChild(moveDiv);
+                document.getElementById('moveHistory').scrollTop = document.getElementById('moveHistory').scrollHeight;
+                document.getElementById('mobileMoveHistory').appendChild(mobileMoveDiv);
+                document.getElementById('mobileMoveHistory').scrollTop = document.getElementById('mobileMoveHistory').scrollHeight;
+            }
+
+            currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            if (currentPlayer === 'white') fullMoveNumber++;
+
+            positionHistory.push(getPositionKey());
+
+            renderBoard();
+            updateStatus();
+            updateEvaluationBar();
+            updateMoveCounter();
+            updateCapturedPieces();
+            checkGameOver();
+
+            if (!gameOver) {
+                if (gameMode === 'ai' && currentPlayer === 'black') {
+                    setTimeout(() => { if (!gameOver) makeAIMove(); }, AI_MOVE_DELAY);
+                } else if (gameMode === 'watch' && watchMatchRunning) {
+                    setTimeout(() => { if (!gameOver && watchMatchRunning) makeAIMove(); }, AI_WATCH_DELAY);
+                }
+            }
+        };
+        piecesContainer.appendChild(div);
+    });
+
+    overlay.classList.add('show');
+    dialog.classList.add('show');
+}
+
+// Update status display
+function updateStatus() {
+    const status = document.getElementById('status');
+    const mobileStatus = document.getElementById('mobileStatus');
+
+    let statusText = '';
+    let statusClass = 'status';
+
+    if (gameOver) {
+        statusText = gameOverReason || 'Game Over';
+    } else {
+        if (gameMode === 'watch') {
+            statusText = `${currentPlayer === 'white' ? 'White' : 'Black'} to move`;
+        } else {
+            statusText = `${currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
+        }
+        statusClass = `status ${currentPlayer}-turn`;
+
+        if (isInCheck(currentPlayer)) {
+            statusText += ' - Check!';
+        }
+    }
+
+    status.textContent = statusText;
+    status.className = statusClass;
+
+    if (mobileStatus) {
+        mobileStatus.textContent = statusText;
+        mobileStatus.className = statusClass;
+    }
+}
+
+// Update captured pieces display
+function updateCapturedPieces() {
+    document.getElementById('whiteCaptured').innerHTML =
+        capturedPieces.white.map(p => PIECES[p]).join(' ');
+    document.getElementById('blackCaptured').innerHTML =
+        capturedPieces.black.map(p => PIECES_HOLLOW[p]).join(' ');
+}
+
+// Update evaluation bar
+function updateEvaluationBar() {
+    const evaluation = evaluateBoard();
+    const maxEval = 2000;
+    const normalized = Math.max(-maxEval, Math.min(maxEval, evaluation));
+    const percentage = ((normalized + maxEval) / (2 * maxEval)) * 100;
+
+    const evalFill = document.getElementById('evalFill');
+    const evalText = document.getElementById('evalText');
+
+    evalFill.style.height = percentage + '%';
+
+    const evalScore = (evaluation / 100).toFixed(1);
+    if (Math.abs(evaluation) < 50) {
+        evalText.textContent = '=';
+        evalText.title = 'Position is equal';
+    } else {
+        evalText.textContent = evalScore > 0 ? `+${evalScore}` : evalScore;
+        evalText.title = evalScore > 0 ? `White is winning by ${evalScore}` : `Black is winning by ${Math.abs(evalScore)}`;
+    }
+}
+
+// Update move counter
+function updateMoveCounter() {
+    const counter = document.getElementById('moveCounter');
+    let displayText = `Move ${fullMoveNumber}`;
+
+    if (halfMoveClock > 20) {
+        displayText += ` | Draw in ${100 - halfMoveClock} moves`;
+    }
+
+    counter.textContent = displayText;
+}
+
+// Update button states based on game mode and history
+function updateButtonStates() {
+    const undoBtn = document.getElementById('undoBtn');
+    const hintBtn = document.getElementById('hintBtn');
+
+    if (undoBtn) {
+        const canUndo = gameMode !== 'watch' && moveHistory.length > 0;
+        undoBtn.disabled = !canUndo;
+        undoBtn.style.opacity = canUndo ? '1' : '0.5';
+        undoBtn.style.cursor = canUndo ? 'pointer' : 'not-allowed';
+    }
+
+    if (hintBtn) {
+        const canHint = gameMode !== 'watch' && !gameOver;
+        hintBtn.disabled = !canHint;
+        hintBtn.style.opacity = canHint ? '1' : '0.5';
+        hintBtn.style.cursor = canHint ? 'pointer' : 'not-allowed';
+    }
+}
+
+// ============================================================================
+// USER INPUT HANDLING
+// ============================================================================
+
+// Handle square click
+function handleSquareClick(row, col) {
+    if (gameOver) return;
+    if (gameMode === 'watch') return;
+    if (gameMode === 'ai' && currentPlayer === 'black') return;
+
+    const piece = board[row][col];
+
+    if (selectedSquare) {
+        const fromRow = selectedSquare.row;
+        const fromCol = selectedSquare.col;
+
+        if (isValidMove(fromRow, fromCol, row, col)) {
+            makeMove(fromRow, fromCol, row, col);
+            selectedSquare = null;
+            renderBoard();
+
+            if (!gameOver) {
+                if (gameMode === 'ai' && currentPlayer === 'black') {
+                    setTimeout(() => { if (!gameOver) makeAIMove(); }, AI_MOVE_DELAY);
+                } else if (gameMode === 'watch' && watchMatchRunning) {
+                    setTimeout(() => { if (!gameOver && watchMatchRunning) makeAIMove(); }, AI_WATCH_DELAY);
+                }
+            }
+        } else {
+            if (piece && isOwnPiece(piece, currentPlayer)) {
+                selectedSquare = { row, col };
+                renderBoard();
+                highlightLegalMoves(row, col);
+            } else {
+                selectedSquare = null;
+                renderBoard();
+            }
+        }
+    } else {
+        if (piece && isOwnPiece(piece, currentPlayer)) {
+            selectedSquare = { row, col };
+            renderBoard();
+            highlightLegalMoves(row, col);
+        }
+    }
+}
+
+// Get hint for current player
+function getHint() {
+    if (gameOver) return;
+    if (gameMode === 'watch') return;
+
+    const hintBtn = document.getElementById('hintBtn');
+    const hintText = document.getElementById('hintText');
+
+    if (hintBtn) {
+        hintBtn.disabled = true;
+        hintBtn.style.opacity = '0.5';
+        hintBtn.style.cursor = 'not-allowed';
+    }
+
+    hintText.style.display = 'block';
+    hintText.textContent = 'Calculating best move...';
+
+    setTimeout(() => {
+        const bestMove = minimax(Math.min(aiDifficulty, 2), currentPlayer, -Infinity, Infinity, currentPlayer === 'white');
+
+        if (bestMove.move) {
+            const piece = board[bestMove.move.from.row][bestMove.move.from.col];
+            const fromSquare = String.fromCharCode(97 + bestMove.move.from.col) + (8 - bestMove.move.from.row);
+            const toSquare = String.fromCharCode(97 + bestMove.move.to.col) + (8 - bestMove.move.to.row);
+
+            hintText.textContent = `Suggested move: ${PIECES[piece]} from ${fromSquare} to ${toSquare}`;
+            drawHintArrow(bestMove.move.from.row, bestMove.move.from.col,
+                         bestMove.move.to.row, bestMove.move.to.col);
+        } else {
+            hintText.textContent = 'No legal moves available.';
+        }
+
+        if (hintBtn) {
+            hintBtn.disabled = false;
+            hintBtn.style.opacity = '1';
+            hintBtn.style.cursor = 'pointer';
+        }
+    }, 100);
+}
+
+// ============================================================================
+// GAME CONTROLS
+// ============================================================================
+
+// Start new game
+function newGame() {
+    if (moveHistory.length > 0 && !gameOver) {
+        if (!confirm('Start a new game? Current game will be lost.')) {
+            return;
+        }
+    }
+
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('gameOver').classList.remove('show');
+
+    // Clear UI state
+    clearAllTimeouts();
+
+    initGame();
+    initUI();
+
+    // Reset watch mode controls if in watch mode
+    if (gameMode === 'watch') {
+        watchMatchRunning = false;
+        document.getElementById('startWatchBtn').style.display = 'block';
+        document.getElementById('pauseWatchBtn').style.display = 'none';
+        document.getElementById('stopWatchBtn').style.display = 'none';
+        document.getElementById('pauseWatchBtn').textContent = 'Pause';
+
+        const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+        const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+        const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+        if (mobileStartBtn) mobileStartBtn.style.display = 'block';
+        if (mobilePauseBtn) {
+            mobilePauseBtn.style.display = 'none';
+            mobilePauseBtn.textContent = 'Pause';
+        }
+        if (mobileStopBtn) mobileStopBtn.style.display = 'none';
+    }
+}
+
+// Undo move(s)
+function undoMove() {
+    if (gameMode === 'watch') return;
+
+    if (gameMode === 'ai') {
+        if (moveHistory.length < 2) {
+            if (!undoSingleMove()) return;
+        } else {
+            if (!undoSingleMove()) return;
+            if (!undoSingleMove()) return;
+        }
+    } else {
+        if (!undoSingleMove()) return;
+    }
+
+    gameOver = false;
+    gameOverReason = '';
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('gameOver').classList.remove('show');
+
+    renderBoard();
+    updateStatus();
+    updateCapturedPieces();
+    updateEvaluationBar();
+    updateMoveCounter();
+    updateButtonStates();
+}
+
+// ============================================================================
+// GAME MODE & SETTINGS
+// ============================================================================
+
+// Set game mode
+function setMode(mode) {
+    gameMode = mode;
+
+    // Update active class on mode buttons (desktop)
+    ['pvp', 'ai', 'watch'].forEach(m => {
+        const btn = document.getElementById(`modeBtn-${m}`);
+        if (btn) btn.classList.toggle('active', m === mode);
+    });
+
+    // Update active class on mode buttons (mobile)
+    ['pvp', 'ai', 'watch'].forEach(m => {
+        const btn = document.getElementById(`mobileModeBtn-${m}`);
+        if (btn) btn.classList.toggle('active', m === mode);
+    });
+
+    // Show/hide appropriate difficulty selectors
+    const singleDiff = document.getElementById('singleAIDifficulty');
+    const watchDiff = document.getElementById('watchAIDifficulty');
+    const mobileSingleDiff = document.getElementById('mobileSingleAIDifficulty');
+    const mobileWatchDiff = document.getElementById('mobileWatchAIDifficulty');
+
+    if (mode === 'watch') {
+        singleDiff.style.display = 'none';
+        watchDiff.style.display = 'block';
+        if (mobileSingleDiff) mobileSingleDiff.style.display = 'none';
+        if (mobileWatchDiff) mobileWatchDiff.style.display = 'block';
+
+        watchMatchRunning = false;
+        document.getElementById('startWatchBtn').style.display = 'block';
+        document.getElementById('pauseWatchBtn').style.display = 'none';
+        document.getElementById('stopWatchBtn').style.display = 'none';
+        const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+        const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+        const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+        if (mobileStartBtn) mobileStartBtn.style.display = 'block';
+        if (mobilePauseBtn) mobilePauseBtn.style.display = 'none';
+        if (mobileStopBtn) mobileStopBtn.style.display = 'none';
+    } else {
+        singleDiff.style.display = 'block';
+        watchDiff.style.display = 'none';
+        if (mobileSingleDiff) mobileSingleDiff.style.display = 'block';
+        if (mobileWatchDiff) mobileWatchDiff.style.display = 'none';
+        watchMatchRunning = false;
+    }
+
+    pendingPromotion = null;
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('promotionDialog').classList.remove('show');
+
+    newGame();
+    updateButtonStates();
+}
+
+// Watch mode controls
+function startWatchMatch() {
+    if (gameMode !== 'watch') return;
+    if (watchMatchRunning) return;
+
+    watchMatchRunning = true;
+
+    document.getElementById('startWatchBtn').style.display = 'none';
+    document.getElementById('pauseWatchBtn').style.display = 'block';
+    document.getElementById('stopWatchBtn').style.display = 'block';
+
+    const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+    const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+    const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+    if (mobileStartBtn) mobileStartBtn.style.display = 'none';
+    if (mobilePauseBtn) mobilePauseBtn.style.display = 'block';
+    if (mobileStopBtn) mobileStopBtn.style.display = 'block';
+
+    setTimeout(makeAIMove, AI_MOVE_DELAY);
+}
+
+function pauseWatchMatch() {
+    if (gameMode !== 'watch') return;
+
+    watchMatchRunning = !watchMatchRunning;
+
+    const pauseBtn = document.getElementById('pauseWatchBtn');
+    pauseBtn.textContent = watchMatchRunning ? 'Pause' : 'Resume';
+
+    const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+    if (mobilePauseBtn) {
+        mobilePauseBtn.textContent = watchMatchRunning ? 'Pause' : 'Resume';
+    }
+
+    if (watchMatchRunning) {
+        setTimeout(makeAIMove, AI_MOVE_DELAY);
+    }
+}
+
+function stopWatchMatch() {
+    if (gameMode !== 'watch') return;
+
+    watchMatchRunning = false;
+
+    document.getElementById('startWatchBtn').style.display = 'block';
+    document.getElementById('pauseWatchBtn').style.display = 'none';
+    document.getElementById('stopWatchBtn').style.display = 'none';
+
+    const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
+    const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
+    const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
+    if (mobileStartBtn) mobileStartBtn.style.display = 'block';
+    if (mobilePauseBtn) mobilePauseBtn.style.display = 'none';
+    if (mobileStopBtn) mobileStopBtn.style.display = 'none';
+
+    document.getElementById('pauseWatchBtn').textContent = 'Pause';
+    if (mobilePauseBtn) mobilePauseBtn.textContent = 'Pause';
+
+    newGame();
+}
+
+// Difficulty settings (synced desktop/mobile)
+function updateDifficulty() {
+    if (isSyncingUI) return;
+    isSyncingUI = true;
+    aiDifficulty = parseInt(document.getElementById('difficulty').value);
+    const mobileDifficulty = document.getElementById('mobileDifficulty');
+    if (mobileDifficulty) mobileDifficulty.value = aiDifficulty;
+    isSyncingUI = false;
+}
+
+function updateDifficultyWhite() {
+    if (isSyncingUI) return;
+    isSyncingUI = true;
+    aiDifficultyWhite = parseInt(document.getElementById('difficultyWhite').value);
+    const mobileDifficultyWhite = document.getElementById('mobileDifficultyWhite');
+    if (mobileDifficultyWhite) mobileDifficultyWhite.value = aiDifficultyWhite;
+    isSyncingUI = false;
+}
+
+function updateDifficultyBlack() {
+    if (isSyncingUI) return;
+    isSyncingUI = true;
+    aiDifficultyBlack = parseInt(document.getElementById('difficultyBlack').value);
+    const mobileDifficultyBlack = document.getElementById('mobileDifficultyBlack');
+    if (mobileDifficultyBlack) mobileDifficultyBlack.value = aiDifficultyBlack;
+    isSyncingUI = false;
+}
+
+function updateMobileDifficulty() {
+    if (isSyncingUI) return;
+    isSyncingUI = true;
+    aiDifficulty = parseInt(document.getElementById('mobileDifficulty').value);
+    document.getElementById('difficulty').value = aiDifficulty;
+    isSyncingUI = false;
+}
+
+function updateMobileDifficultyWhite() {
+    if (isSyncingUI) return;
+    isSyncingUI = true;
+    aiDifficultyWhite = parseInt(document.getElementById('mobileDifficultyWhite').value);
+    document.getElementById('difficultyWhite').value = aiDifficultyWhite;
+    isSyncingUI = false;
+}
+
+function updateMobileDifficultyBlack() {
+    if (isSyncingUI) return;
+    isSyncingUI = true;
+    aiDifficultyBlack = parseInt(document.getElementById('mobileDifficultyBlack').value);
+    document.getElementById('difficultyBlack').value = aiDifficultyBlack;
+    isSyncingUI = false;
+}
+
+function toggleLegalMoves() {
+    showLegalMovesEnabled = document.getElementById('showLegalMoves').checked;
+    const mobileCheckbox = document.getElementById('mobileShowLegalMoves');
+    if (mobileCheckbox) mobileCheckbox.checked = showLegalMovesEnabled;
+    renderBoard();
+}
+
+function toggleMobileLegalMoves() {
+    showLegalMovesEnabled = document.getElementById('mobileShowLegalMoves').checked;
+    document.getElementById('showLegalMoves').checked = showLegalMovesEnabled;
+    renderBoard();
+}
+
+// ============================================================================
+// DIALOGS
+// ============================================================================
+
+function showInfo() {
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('infoDialog').classList.add('show');
+}
+
+function closeInfo() {
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('infoDialog').classList.remove('show');
+}
+
+function handleOverlayClick() {
+    const mobileMenu = document.getElementById('mobileMenu');
+    const infoDialog = document.getElementById('infoDialog');
+
+    if (mobileMenu && mobileMenu.classList.contains('show')) {
+        closeMobileMenu();
+    } else if (infoDialog && infoDialog.classList.contains('show')) {
+        closeInfo();
+    }
+}
+
+function openMobileMenu() {
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('mobileMenu').classList.add('show');
+}
+
+function closeMobileMenu() {
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('mobileMenu').classList.remove('show');
+}
+
+// ============================================================================
+// INITIALIZATION HELPERS
+// ============================================================================
+
+// Clear all UI timeouts
+function clearAllTimeouts() {
+    if (arrowFadeTimeout) { clearTimeout(arrowFadeTimeout); arrowFadeTimeout = null; }
+    if (arrowRemovalTimeout) { clearTimeout(arrowRemovalTimeout); arrowRemovalTimeout = null; }
+    if (hintArrowTimeout) { clearTimeout(hintArrowTimeout); hintArrowTimeout = null; }
+    if (hintArrowRemovalTimeout) { clearTimeout(hintArrowRemovalTimeout); hintArrowRemovalTimeout = null; }
+    if (gameOverDialogTimeout) { clearTimeout(gameOverDialogTimeout); gameOverDialogTimeout = null; }
+    if (aiMoveTimeout) { clearTimeout(aiMoveTimeout); aiMoveTimeout = null; }
+    arrowFadeTimeoutMove = null;
+}
+
+// Initialize UI elements after game init
+function initUI() {
+    // Clear SVG arrows
+    const svg = document.getElementById('moveArrowSvg');
+    if (svg) {
+        const arrows = svg.querySelectorAll('line, circle, .hint-arrow');
+        arrows.forEach(el => el.remove());
+        svg.classList.remove('fade-out');
+        svg.style.opacity = '1';
+    }
+
+    // Ensure all overlays and dialogs are hidden
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('promotionDialog').classList.remove('show');
+    document.getElementById('aiThinking').classList.remove('show');
+    const mobileAiThinking = document.getElementById('mobileAiThinking');
+    if (mobileAiThinking) {
+        mobileAiThinking.classList.remove('show');
+    }
+
+    renderBoard();
+    updateStatus();
+    updateCapturedPieces();
+    updateEvaluationBar();
+    updateMoveCounter();
+    updateButtonStates();
+    document.getElementById('moveHistory').innerHTML = '';
+    document.getElementById('mobileMoveHistory').innerHTML = '';
+    document.getElementById('hintText').style.display = 'none';
+}
