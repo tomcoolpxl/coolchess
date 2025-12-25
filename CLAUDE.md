@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a browser-based chess game implemented as a single HTML file (`index.html`) with embedded CSS and JavaScript. The game features:
+This is a browser-based chess game with separate HTML, CSS, and JavaScript files. The game features:
 - Full chess rules implementation (castling, en passant, pawn promotion, 50-move rule, threefold repetition)
 - AI opponent using minimax algorithm with alpha-beta pruning
 - Three game modes: Player vs Player, Player vs AI, AI vs AI (watch mode with start/pause/stop controls)
@@ -21,17 +21,36 @@ Simply open `index.html` in any modern web browser. No build process, server, or
 
 ## Architecture
 
-### Single-File Structure
+### File Structure
 
-The entire application is contained in `index.html` with three main sections:
+```
+coolchess/
+├── index.html          # HTML structure only (~250 lines)
+├── css/
+│   └── style.css       # All styling (~1070 lines)
+├── js/
+│   └── chess.js        # Game logic, AI, UI (~1980 lines)
+├── CLAUDE.md           # This documentation
+└── README.md           # Project readme
+```
 
-1. **CSS**: All styling including board layout, pieces, animations, dialogs, info panel
-2. **HTML**: DOM structure with:
+1. **index.html**: DOM structure with:
    - Board container with chessboard and evaluation bar
    - Controls below board (undo, hint, captured pieces)
    - Sidebar with title, game status, mode selection, AI difficulty, settings
    - Dialogs (promotion, game over, info)
-3. **JavaScript**: Game logic, AI, rendering, UI controls
+   - Links to external CSS and JS files
+
+2. **css/style.css**: All styling including:
+   - Board layout and pieces
+   - Animations and transitions
+   - Dialogs and info panel
+   - Mobile responsive styles
+
+3. **js/chess.js**: All JavaScript including:
+   - Game state and logic
+   - AI (minimax with alpha-beta pruning)
+   - Rendering and UI controls
 
 ### Layout Structure
 
@@ -151,16 +170,16 @@ The application includes full mobile support with:
 
 ## Modifying the Game
 
-**To adjust AI strength**:
+**To adjust AI strength** (in `js/chess.js`):
 - Modify piece values in `evaluateBoard()`
 - Adjust piece-square tables
 - Modify mobility weight calculation
 
-**To add new game modes**:
+**To add new game modes** (in `js/chess.js`):
 - Update `setMode()` function
 - Add mode handling in `handleSquareClick()`
 
-**To customize appearance**:
+**To customize appearance** (in `css/style.css`):
 - Board colors: `.square.light` and `.square.dark` classes
 - Piece size: `.square` font-size
 - Highlight colors: `.selected`, `.legal-move` classes
