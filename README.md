@@ -52,55 +52,7 @@ In AI vs AI mode, you can set different difficulty levels for White and Black AI
 
 The application uses a modular file structure:
 
-```
-coolchess/
-├── index.html          # HTML structure
-├── css/
-│   └── style.css       # All styling
-├── js/
-│   ├── constants.js    # Shared constants
-│   ├── engine.js       # Core game logic (pure, no DOM)
-│   ├── ai.js           # AI/minimax/evaluation
-│   ├── ui.js           # Rendering & controls
-│   └── main.js         # Initialization
-├── README.md           # This file
-└── CLAUDE.md           # Development guide
-```
-
-### Key Components
-
-**Game Logic** (engine.js):
-- Board state management with piece tracking
-- Legal move validation and generation
-- Special move handling (castling, en passant, promotion)
-- Game-over detection (checkmate, stalemate, draws)
-- Move history for undo functionality
-
-**AI Engine** (ai.js):
-- Minimax algorithm with alpha-beta pruning
-- Configurable search depth for difficulty levels
-- Position evaluation with piece-square tables
-- King safety assessment
-- Mobility-based evaluation
-- Opening book for move variety
-
-**UI Layer** (ui.js):
-- Board rendering and move arrows
-- New Game dialog for mode/difficulty selection
-- Game info display showing current settings
-- Hint system with visual arrows
-
-## Technical Details
-
-- **No Dependencies**: Pure HTML, CSS, and JavaScript
-- **Modern Browser Support**: Works on all modern browsers
-- **Responsive Design**: Adapts to different screen sizes
-- **Clean Architecture**: Engine logic separated from UI
-- **Performance**: Alpha-beta pruning for efficient AI search
-
-## File Structure
-
-```
+```bash
 coolchess/
 ├── index.html          # Main HTML structure
 ├── css/
@@ -114,3 +66,37 @@ coolchess/
 ├── README.md           # This file
 └── CLAUDE.md           # Development documentation
 ```
+
+### Key Components
+
+**Game Logic** (engine.js):
+
+- Board state management with piece tracking
+- Legal move validation and generation
+- Special move handling (castling, en passant, promotion)
+- Game-over detection (checkmate, stalemate, draws)
+- Move history for undo functionality
+
+**AI Engine** (ai.js):
+
+- Minimax algorithm with alpha-beta pruning
+- Configurable search depth for difficulty levels
+- Position evaluation with piece-square tables
+- King safety assessment
+- Mobility-based evaluation
+- Opening book for move variety
+
+**UI Layer** (ui.js):
+
+- Board rendering and move arrows
+- New Game dialog for mode/difficulty selection
+- Game info display showing current settings
+- Hint system with visual arrows
+
+## Technical Details
+
+- **No Dependencies**: Pure HTML, CSS, and JavaScript
+- **Modern Browser Support**: Works on all modern browsers
+- **Responsive Design**: Adapts to different screen sizes
+- **Clean Architecture**: Engine logic separated from UI
+- **Performance**: Alpha-beta pruning for efficient AI search
