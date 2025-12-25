@@ -436,6 +436,16 @@ function showGameOverDialog(gameOverResult) {
 
     overlay.classList.add('show');
     gameOverDialog.classList.add('show');
+
+    // Auto-close dialog after 2 seconds
+    if (gameOverDialogTimeout) {
+        clearTimeout(gameOverDialogTimeout);
+    }
+    gameOverDialogTimeout = setTimeout(() => {
+        gameOverDialog.classList.remove('show');
+        overlay.classList.remove('show');
+        gameOverDialogTimeout = null;
+    }, 2000);
 }
 
 // UI wrapper for makeMove - handles all UI updates after a move
