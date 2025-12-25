@@ -28,13 +28,13 @@
             <p>The algorithm works by:</p>
             <ul>
                 <li>Generating all possible legal moves from the current position</li>
-                <li>Ordering moves intelligently (captures and checks first) to improve pruning efficiency</li>
+                <li>Ordering moves intelligently (captures and checks first) to improve alpha-beta pruning efficiency</li>
                 <li>For each move, simulating the opponent's best response</li>
                 <li>Recursively evaluating positions to a specified depth</li>
+                <li>Using alpha-beta pruning to eliminate branches that cannot affect the final decision</li>
                 <li>Caching evaluated positions in a transposition table to avoid re-computing identical board states</li>
                 <li>Scoring positions based on material count and piece positioning</li>
-                <li>Selecting the move that maximizes the AI's position while minimizing yours</li>
-            </ul>
+                <li>Selecting the move that maximizes the AI's position while minimizing yours</li></ul>
             <p>Difficulty levels control search depth. Higher depth means the AI evaluates more moves ahead but takes longer to compute. Depth 1 evaluates only immediate moves. Depth 4 searches four moves into the future.</p>
 
             <h3>Opening Book</h3>
@@ -49,6 +49,7 @@
         </div>
         <div style="text-align: center; margin-top: 20px;">
             <img src="assets/img/maurice_cool.jpg" alt="Maurice" style="max-width: 300px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            <p style="margin-top: 15px; font-style: italic; color: #666;">A tribute to Maurits Cool</p>
         </div>
         <button onclick="closeInfo()">Close</button>
     </div>
