@@ -133,6 +133,8 @@ function drawMoveArrow() {
                 const arrows = svg.querySelectorAll('line, circle');
                 arrows.forEach(el => el.remove());
                 svg.classList.remove('fade-out');
+                // Remove last-move highlighting from squares
+                document.querySelectorAll('.square.last-move').forEach(sq => sq.classList.remove('last-move'));
                 arrowRemovalTimeout = null;
             }, ARROW_FADE_DURATION);
         }, ARROW_FADE_DELAY);
@@ -193,7 +195,7 @@ function drawHintArrow(fromRow, fromCol, toRow, toCol) {
     line.setAttribute('stroke', '#FF0000');
     line.setAttribute('stroke-width', '4');
     line.setAttribute('stroke-linecap', 'round');
-    line.setAttribute('stroke-dasharray', '8,4');
+    line.setAttribute('stroke-dasharray', '8,12');
     line.setAttribute('marker-end', 'url(#arrowhead-hint)');
     line.classList.add('hint-arrow');
 
