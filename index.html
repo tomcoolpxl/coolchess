@@ -48,57 +48,53 @@
         <button onclick="closeInfo()">Close</button>
     </div>
 
-    <div class="mobile-menu" id="mobileMenu">
-        <h2>Menu</h2>
-        <div class="mobile-menu-content" onclick="event.stopPropagation()">
-            <h3>Game Mode</h3>
-            <div class="mode-buttons">
-                <button id="mobileModeBtn-ai" class="active" onclick="setMode('ai'); closeMobileMenu()" aria-label="Play against the AI">Player vs AI</button>
-                <button id="mobileModeBtn-watch" onclick="setMode('watch'); closeMobileMenu()" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
+    <div class="new-game-dialog" id="newGameDialog">
+        <h2>New Game</h2>
+        <div class="new-game-content">
+            <div class="new-game-section">
+                <label>Game Mode</label>
+                <div class="mode-toggle">
+                    <button id="modePlayerVsAI" class="mode-option active" onclick="selectGameMode('ai')">Player vs AI</button>
+                    <button id="modeAIvsAI" class="mode-option" onclick="selectGameMode('watch')">Watch AI vs AI</button>
+                </div>
             </div>
 
-            <h3 style="margin-top: 20px;">AI Difficulty</h3>
-            <div id="mobileSingleAIDifficulty">
-                <select id="mobileDifficulty" onchange="updateMobileDifficulty()">
+            <div class="new-game-section" id="singleAISection">
+                <label>AI Difficulty</label>
+                <select id="newGameDifficulty">
                     <option value="1">Beginner (Depth 1)</option>
                     <option value="2" selected>Easy (Depth 2)</option>
                     <option value="3">Medium (Depth 3)</option>
                     <option value="4">Hard (Depth 4)</option>
                 </select>
             </div>
-            <div id="mobileWatchAIDifficulty" style="display: none;">
-                <div style="margin-bottom: 10px;">
-                    <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">White AI:</label>
-                    <select id="mobileDifficultyWhite" onchange="updateMobileDifficultyWhite()">
-                        <option value="1">Beginner (Depth 1)</option>
-                        <option value="2" selected>Easy (Depth 2)</option>
-                        <option value="3">Medium (Depth 3)</option>
-                        <option value="4">Hard (Depth 4)</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">Black AI:</label>
-                    <select id="mobileDifficultyBlack" onchange="updateMobileDifficultyBlack()">
-                        <option value="1">Beginner (Depth 1)</option>
-                        <option value="2" selected>Easy (Depth 2)</option>
-                        <option value="3">Medium (Depth 3)</option>
-                        <option value="4">Hard (Depth 4)</option>
-                    </select>
-                </div>
-                <div id="mobileWatchControls" style="margin-top: 15px; display: flex; gap: 5px;">
-                    <button id="mobileStartWatchBtn" onclick="startWatchMatch()" style="flex: 1; padding: 12px; font-size: 14px; min-height: 44px;">Start Match</button>
-                    <button id="mobilePauseWatchBtn" onclick="pauseWatchMatch()" style="flex: 1; padding: 12px; font-size: 14px; min-height: 44px; display: none;">Pause</button>
-                    <button id="mobileStopWatchBtn" onclick="stopWatchMatch()" style="flex: 1; padding: 12px; font-size: 14px; min-height: 44px; display: none;">Stop</button>
-                </div>
-            </div>
 
-            <h3 style="margin-top: 20px;">Settings</h3>
-            <div class="checkbox-container">
-                <input type="checkbox" id="mobileShowLegalMoves" checked onchange="toggleMobileLegalMoves()">
-                <label for="mobileShowLegalMoves">Show Legal Moves</label>
+            <div class="new-game-section" id="dualAISection" style="display: none;">
+                <label>White AI</label>
+                <select id="newGameWhiteAI">
+                    <option value="1">Beginner (Depth 1)</option>
+                    <option value="2" selected>Easy (Depth 2)</option>
+                    <option value="3">Medium (Depth 3)</option>
+                    <option value="4">Hard (Depth 4)</option>
+                </select>
+                <label style="margin-top: 10px;">Black AI</label>
+                <select id="newGameBlackAI">
+                    <option value="1">Beginner (Depth 1)</option>
+                    <option value="2" selected>Easy (Depth 2)</option>
+                    <option value="3">Medium (Depth 3)</option>
+                    <option value="4">Hard (Depth 4)</option>
+                </select>
             </div>
+        </div>
+        <div class="new-game-buttons">
+            <button onclick="cancelNewGame()">Cancel</button>
+            <button onclick="startNewGame()" class="primary">Start Game</button>
+        </div>
+    </div>
 
-            <h3 style="margin-top: 20px;">Move History</h3>
+    <div class="mobile-menu" id="mobileMenu">
+        <h2>Move History</h2>
+        <div class="mobile-menu-content" onclick="event.stopPropagation()">
             <div class="move-history" id="mobileMoveHistory"></div>
         </div>
         <button onclick="closeMobileMenu()" style="margin-top: 20px;">Close</button>
@@ -106,13 +102,14 @@
 
     <div class="mobile-header" id="mobileHeader">
         <div class="mobile-header-top">
-            <button class="mobile-menu-btn" onclick="openMobileMenu()" aria-label="Open menu">☰</button>
+            <button class="mobile-menu-btn" onclick="openMobileMenu()" aria-label="View move history">☰</button>
             <div class="mobile-title">coolChess</div>
             <button class="mobile-info-btn" onclick="showInfo()" aria-label="Show information about how the AI works">i</button>
         </div>
         <div class="mobile-status-bar">
+            <div class="mobile-game-info" id="mobileGameInfo">Player vs AI (Easy)</div>
             <div class="status" id="mobileStatus">White's Turn</div>
-            <button class="mobile-new-game-btn" onclick="newGame()" aria-label="Start a new game">New Game</button>
+            <button class="mobile-new-game-btn" onclick="showNewGameDialog()" aria-label="Start a new game">New Game</button>
         </div>
         <div class="ai-thinking" id="mobileAiThinking">
             <div class="ai-thinking-spinner"></div>
@@ -178,8 +175,9 @@
 
             <div class="panel">
                 <h2>Game Status</h2>
+                <div class="game-info" id="gameInfo">Player vs AI (Easy)</div>
                 <div class="status" id="status">White's Turn</div>
-                <div class="move-counter" id="moveCounter">Move: 1 | Halfmove: 0</div>
+                <div class="move-counter" id="moveCounter">Move: 1</div>
                 <div class="ai-thinking" id="aiThinking">
                     <div class="ai-thinking-spinner"></div>
                     <div class="ai-thinking-text" id="aiThinkingText">AI is thinking...</div>
@@ -188,63 +186,7 @@
                     <strong>Eval Bar:</strong> White area (W) fills up when White is winning, Black area (B) fills when Black is winning. Number shows advantage.
                 </div>
                 <div class="move-history" id="moveHistory"></div>
-            </div>
-
-            <div class="panel">
-                <h2>Game Mode</h2>
-                <div class="mode-buttons">
-                    <button id="modeBtn-ai" class="active" onclick="setMode('ai')" aria-label="Play against the AI">Player vs AI</button>
-                    <button id="modeBtn-watch" onclick="setMode('watch')" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2>AI Difficulty</h2>
-                <div id="singleAIDifficulty">
-                    <select id="difficulty" onchange="updateDifficulty()">
-                        <option value="1">Beginner (Depth 1)</option>
-                        <option value="2" selected>Easy (Depth 2)</option>
-                        <option value="3">Medium (Depth 3)</option>
-                        <option value="4">Hard (Depth 4)</option>
-                    </select>
-                </div>
-                <div id="watchAIDifficulty" style="display: none;">
-                    <div style="margin-bottom: 10px;">
-                        <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">White AI:</label>
-                        <select id="difficultyWhite" onchange="updateDifficultyWhite()">
-                            <option value="1">Beginner (Depth 1)</option>
-                            <option value="2" selected>Easy (Depth 2)</option>
-                            <option value="3">Medium (Depth 3)</option>
-                            <option value="4">Hard (Depth 4)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">Black AI:</label>
-                        <select id="difficultyBlack" onchange="updateDifficultyBlack()">
-                            <option value="1">Beginner (Depth 1)</option>
-                            <option value="2" selected>Easy (Depth 2)</option>
-                            <option value="3">Medium (Depth 3)</option>
-                            <option value="4">Hard (Depth 4)</option>
-                        </select>
-                    </div>
-                    <div id="watchControls" style="margin-top: 15px; display: flex; gap: 5px;">
-                        <button id="startWatchBtn" onclick="startWatchMatch()" style="flex: 1; padding: 8px; font-size: 12px;">Start Match</button>
-                        <button id="pauseWatchBtn" onclick="pauseWatchMatch()" style="flex: 1; padding: 8px; font-size: 12px; display: none;">Pause</button>
-                        <button id="stopWatchBtn" onclick="stopWatchMatch()" style="flex: 1; padding: 8px; font-size: 12px; display: none;">Stop</button>
-                    </div>
-                </div>
-                <div style="font-size: 11px; color: #888; margin-top: 5px;">
-                    Higher depth = stronger but slower
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2>Settings</h2>
-                <div class="checkbox-container">
-                    <input type="checkbox" id="showLegalMoves" checked onchange="toggleLegalMoves()">
-                    <label for="showLegalMoves">Show Legal Moves</label>
-                </div>
-                <button onclick="newGame()" aria-label="Start a new game">New Game</button>
+                <button onclick="showNewGameDialog()" class="new-game-btn" aria-label="Start a new game">New Game</button>
             </div>
         </div>
     </div>

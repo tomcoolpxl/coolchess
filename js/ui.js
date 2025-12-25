@@ -11,8 +11,7 @@ let hintArrowRemovalTimeout = null;
 let gameOverDialogTimeout = null;
 let aiMoveTimeout = null;
 let watchMatchRunning = false;
-let showLegalMovesEnabled = true;
-let isSyncingUI = false;
+let selectedDialogMode = 'ai'; // For new game dialog
 
 // ============================================================================
 // RENDERING
@@ -249,8 +248,6 @@ function drawHintArrow(fromRow, fromCol, toRow, toCol) {
 
 // Highlight legal moves for selected piece
 function highlightLegalMoves(row, col) {
-    if (!showLegalMovesEnabled) return;
-
     const moves = getLegalMovesForPiece(row, col);
     moves.forEach(move => {
         const square = document.querySelector(`[data-row="${move.row}"][data-col="${move.col}"]`);
@@ -582,41 +579,13 @@ function getHint() {
 // GAME CONTROLS
 // ============================================================================
 
-// Start new game
+// Start new game (called from game over dialog)
 function newGame() {
-    if (moveHistory.length > 0 && !gameOver) {
-        if (!confirm('Start a new game? Current game will be lost.')) {
-            return;
-        }
-    }
-
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('gameOver').classList.remove('show');
 
-    // Clear UI state
-    clearAllTimeouts();
-
-    initGame();
-    initUI();
-
-    // Reset watch mode controls if in watch mode
-    if (gameMode === 'watch') {
-        watchMatchRunning = false;
-        document.getElementById('startWatchBtn').style.display = 'block';
-        document.getElementById('pauseWatchBtn').style.display = 'none';
-        document.getElementById('stopWatchBtn').style.display = 'none';
-        document.getElementById('pauseWatchBtn').textContent = 'Pause';
-
-        const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
-        const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
-        const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
-        if (mobileStartBtn) mobileStartBtn.style.display = 'block';
-        if (mobilePauseBtn) {
-            mobilePauseBtn.style.display = 'none';
-            mobilePauseBtn.textContent = 'Pause';
-        }
-        if (mobileStopBtn) mobileStopBtn.style.display = 'none';
-    }
+    // Show new game dialog to let user configure options
+    showNewGameDialog();
 }
 
 // Undo move(s) - undoes 2 moves to return to player's turn
@@ -682,187 +651,115 @@ function updateMoveHistoryDisplay() {
 }
 
 // ============================================================================
-// GAME MODE & SETTINGS
+// NEW GAME DIALOG
 // ============================================================================
 
-// Set game mode
-function setMode(mode) {
-    gameMode = mode;
-
-    // Update active class on mode buttons (desktop)
-    ['ai', 'watch'].forEach(m => {
-        const btn = document.getElementById(`modeBtn-${m}`);
-        if (btn) btn.classList.toggle('active', m === mode);
-    });
-
-    // Update active class on mode buttons (mobile)
-    ['ai', 'watch'].forEach(m => {
-        const btn = document.getElementById(`mobileModeBtn-${m}`);
-        if (btn) btn.classList.toggle('active', m === mode);
-    });
-
-    // Show/hide appropriate difficulty selectors
-    const singleDiff = document.getElementById('singleAIDifficulty');
-    const watchDiff = document.getElementById('watchAIDifficulty');
-    const mobileSingleDiff = document.getElementById('mobileSingleAIDifficulty');
-    const mobileWatchDiff = document.getElementById('mobileWatchAIDifficulty');
-
-    if (mode === 'watch') {
-        singleDiff.style.display = 'none';
-        watchDiff.style.display = 'block';
-        if (mobileSingleDiff) mobileSingleDiff.style.display = 'none';
-        if (mobileWatchDiff) mobileWatchDiff.style.display = 'block';
-
-        watchMatchRunning = false;
-        document.getElementById('startWatchBtn').style.display = 'block';
-        document.getElementById('pauseWatchBtn').style.display = 'none';
-        document.getElementById('stopWatchBtn').style.display = 'none';
-        const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
-        const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
-        const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
-        if (mobileStartBtn) mobileStartBtn.style.display = 'block';
-        if (mobilePauseBtn) mobilePauseBtn.style.display = 'none';
-        if (mobileStopBtn) mobileStopBtn.style.display = 'none';
-    } else {
-        singleDiff.style.display = 'block';
-        watchDiff.style.display = 'none';
-        if (mobileSingleDiff) mobileSingleDiff.style.display = 'block';
-        if (mobileWatchDiff) mobileWatchDiff.style.display = 'none';
+// Show the new game dialog
+function showNewGameDialog() {
+    // Pause AI vs AI if running
+    if (gameMode === 'watch') {
         watchMatchRunning = false;
     }
 
-    pendingPromotion = null;
+    // Sync dialog with current settings
+    syncNewGameDialog();
+
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('newGameDialog').classList.add('show');
+}
+
+// Sync dialog values with current game settings
+function syncNewGameDialog() {
+    // Set mode toggle
+    selectedDialogMode = gameMode;
+    document.getElementById('modePlayerVsAI').classList.toggle('active', gameMode === 'ai');
+    document.getElementById('modeAIvsAI').classList.toggle('active', gameMode === 'watch');
+
+    // Show/hide appropriate difficulty sections
+    document.getElementById('singleAISection').style.display = gameMode === 'ai' ? 'block' : 'none';
+    document.getElementById('dualAISection').style.display = gameMode === 'watch' ? 'block' : 'none';
+
+    // Set difficulty values
+    document.getElementById('newGameDifficulty').value = aiDifficulty;
+    document.getElementById('newGameWhiteAI').value = aiDifficultyWhite;
+    document.getElementById('newGameBlackAI').value = aiDifficultyBlack;
+}
+
+// Handle mode selection in dialog
+function selectGameMode(mode) {
+    selectedDialogMode = mode;
+
+    // Update toggle buttons
+    document.getElementById('modePlayerVsAI').classList.toggle('active', mode === 'ai');
+    document.getElementById('modeAIvsAI').classList.toggle('active', mode === 'watch');
+
+    // Show/hide appropriate difficulty sections
+    document.getElementById('singleAISection').style.display = mode === 'ai' ? 'block' : 'none';
+    document.getElementById('dualAISection').style.display = mode === 'watch' ? 'block' : 'none';
+}
+
+// Cancel new game dialog
+function cancelNewGame() {
     document.getElementById('overlay').classList.remove('show');
-    document.getElementById('promotionDialog').classList.remove('show');
+    document.getElementById('newGameDialog').classList.remove('show');
 
-    newGame();
-    updateButtonStates();
-}
-
-// Watch mode controls
-function startWatchMatch() {
-    if (gameMode !== 'watch') return;
-    if (watchMatchRunning) return;
-
-    watchMatchRunning = true;
-
-    document.getElementById('startWatchBtn').style.display = 'none';
-    document.getElementById('pauseWatchBtn').style.display = 'block';
-    document.getElementById('stopWatchBtn').style.display = 'block';
-
-    const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
-    const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
-    const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
-    if (mobileStartBtn) mobileStartBtn.style.display = 'none';
-    if (mobilePauseBtn) mobilePauseBtn.style.display = 'block';
-    if (mobileStopBtn) mobileStopBtn.style.display = 'block';
-
-    setTimeout(makeAIMove, AI_MOVE_DELAY);
-}
-
-function pauseWatchMatch() {
-    if (gameMode !== 'watch') return;
-
-    watchMatchRunning = !watchMatchRunning;
-
-    const pauseBtn = document.getElementById('pauseWatchBtn');
-    pauseBtn.textContent = watchMatchRunning ? 'Pause' : 'Resume';
-
-    const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
-    if (mobilePauseBtn) {
-        mobilePauseBtn.textContent = watchMatchRunning ? 'Pause' : 'Resume';
-    }
-
-    if (watchMatchRunning) {
+    // Resume AI vs AI if was running and game not over
+    if (gameMode === 'watch' && !gameOver && moveHistory.length > 0) {
+        watchMatchRunning = true;
         setTimeout(makeAIMove, AI_MOVE_DELAY);
     }
 }
 
-function stopWatchMatch() {
-    if (gameMode !== 'watch') return;
+// Start new game with dialog settings
+function startNewGame() {
+    // Read dialog values
+    gameMode = selectedDialogMode;
 
+    if (gameMode === 'watch') {
+        aiDifficultyWhite = parseInt(document.getElementById('newGameWhiteAI').value);
+        aiDifficultyBlack = parseInt(document.getElementById('newGameBlackAI').value);
+    } else {
+        aiDifficulty = parseInt(document.getElementById('newGameDifficulty').value);
+    }
+
+    // Close dialog
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('newGameDialog').classList.remove('show');
+
+    // Clear UI state
+    clearAllTimeouts();
     watchMatchRunning = false;
 
-    document.getElementById('startWatchBtn').style.display = 'block';
-    document.getElementById('pauseWatchBtn').style.display = 'none';
-    document.getElementById('stopWatchBtn').style.display = 'none';
+    // Reset and start
+    initGame();
+    initUI();
+    updateGameInfo();
 
-    const mobileStartBtn = document.getElementById('mobileStartWatchBtn');
-    const mobilePauseBtn = document.getElementById('mobilePauseWatchBtn');
-    const mobileStopBtn = document.getElementById('mobileStopWatchBtn');
-    if (mobileStartBtn) mobileStartBtn.style.display = 'block';
-    if (mobilePauseBtn) mobilePauseBtn.style.display = 'none';
-    if (mobileStopBtn) mobileStopBtn.style.display = 'none';
-
-    document.getElementById('pauseWatchBtn').textContent = 'Pause';
-    if (mobilePauseBtn) mobilePauseBtn.textContent = 'Pause';
-
-    newGame();
+    // Start AI vs AI match automatically
+    if (gameMode === 'watch') {
+        watchMatchRunning = true;
+        setTimeout(makeAIMove, AI_MOVE_DELAY);
+    }
 }
 
-// Difficulty settings (synced desktop/mobile)
-function updateDifficulty() {
-    if (isSyncingUI) return;
-    isSyncingUI = true;
-    aiDifficulty = parseInt(document.getElementById('difficulty').value);
-    const mobileDifficulty = document.getElementById('mobileDifficulty');
-    if (mobileDifficulty) mobileDifficulty.value = aiDifficulty;
-    isSyncingUI = false;
-}
+// Update game info display (shows current mode and difficulty)
+function updateGameInfo() {
+    const gameInfoEl = document.getElementById('gameInfo');
+    const mobileGameInfoEl = document.getElementById('mobileGameInfo');
+    const diffNames = ['Beginner', 'Easy', 'Medium', 'Hard'];
 
-function updateDifficultyWhite() {
-    if (isSyncingUI) return;
-    isSyncingUI = true;
-    aiDifficultyWhite = parseInt(document.getElementById('difficultyWhite').value);
-    const mobileDifficultyWhite = document.getElementById('mobileDifficultyWhite');
-    if (mobileDifficultyWhite) mobileDifficultyWhite.value = aiDifficultyWhite;
-    isSyncingUI = false;
-}
+    let infoText;
+    if (gameMode === 'watch') {
+        const whiteName = diffNames[aiDifficultyWhite - 1];
+        const blackName = diffNames[aiDifficultyBlack - 1];
+        infoText = `AI vs AI: ${whiteName} vs ${blackName}`;
+    } else {
+        const diffName = diffNames[aiDifficulty - 1];
+        infoText = `Player vs AI (${diffName})`;
+    }
 
-function updateDifficultyBlack() {
-    if (isSyncingUI) return;
-    isSyncingUI = true;
-    aiDifficultyBlack = parseInt(document.getElementById('difficultyBlack').value);
-    const mobileDifficultyBlack = document.getElementById('mobileDifficultyBlack');
-    if (mobileDifficultyBlack) mobileDifficultyBlack.value = aiDifficultyBlack;
-    isSyncingUI = false;
-}
-
-function updateMobileDifficulty() {
-    if (isSyncingUI) return;
-    isSyncingUI = true;
-    aiDifficulty = parseInt(document.getElementById('mobileDifficulty').value);
-    document.getElementById('difficulty').value = aiDifficulty;
-    isSyncingUI = false;
-}
-
-function updateMobileDifficultyWhite() {
-    if (isSyncingUI) return;
-    isSyncingUI = true;
-    aiDifficultyWhite = parseInt(document.getElementById('mobileDifficultyWhite').value);
-    document.getElementById('difficultyWhite').value = aiDifficultyWhite;
-    isSyncingUI = false;
-}
-
-function updateMobileDifficultyBlack() {
-    if (isSyncingUI) return;
-    isSyncingUI = true;
-    aiDifficultyBlack = parseInt(document.getElementById('mobileDifficultyBlack').value);
-    document.getElementById('difficultyBlack').value = aiDifficultyBlack;
-    isSyncingUI = false;
-}
-
-function toggleLegalMoves() {
-    showLegalMovesEnabled = document.getElementById('showLegalMoves').checked;
-    const mobileCheckbox = document.getElementById('mobileShowLegalMoves');
-    if (mobileCheckbox) mobileCheckbox.checked = showLegalMovesEnabled;
-    renderBoard();
-}
-
-function toggleMobileLegalMoves() {
-    showLegalMovesEnabled = document.getElementById('mobileShowLegalMoves').checked;
-    document.getElementById('showLegalMoves').checked = showLegalMovesEnabled;
-    renderBoard();
+    if (gameInfoEl) gameInfoEl.textContent = infoText;
+    if (mobileGameInfoEl) mobileGameInfoEl.textContent = infoText;
 }
 
 // ============================================================================
@@ -913,11 +810,14 @@ function closeInfo() {
 function handleOverlayClick() {
     const mobileMenu = document.getElementById('mobileMenu');
     const infoDialog = document.getElementById('infoDialog');
+    const newGameDialog = document.getElementById('newGameDialog');
 
     if (mobileMenu && mobileMenu.classList.contains('show')) {
         closeMobileMenu();
     } else if (infoDialog && infoDialog.classList.contains('show')) {
         closeInfo();
+    } else if (newGameDialog && newGameDialog.classList.contains('show')) {
+        cancelNewGame();
     }
 }
 
@@ -972,6 +872,7 @@ function initUI() {
     updateEvaluationBar();
     updateMoveCounter();
     updateButtonStates();
+    updateGameInfo();
     document.getElementById('moveHistory').innerHTML = '';
     document.getElementById('mobileMoveHistory').innerHTML = '';
     document.getElementById('hintText').style.display = 'none';
