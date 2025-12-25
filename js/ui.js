@@ -20,7 +20,6 @@ let isSyncingUI = false;
 
 // Render the chessboard
 function renderBoard() {
-    const boardWrapper = document.querySelector('.board-with-coords');
     const chessboard = document.getElementById('chessboard');
     chessboard.innerHTML = '';
 
