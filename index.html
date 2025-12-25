@@ -339,6 +339,13 @@
             margin-bottom: 0;
         }
 
+        .mode-buttons button.active,
+        button.mode-active {
+            background: linear-gradient(135deg, #5a6fd6 0%, #6b4f9a 100%);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            transform: scale(0.98);
+        }
+
         .move-history {
             max-height: 200px;
             overflow-y: auto;
@@ -1102,7 +1109,7 @@
             <p>The first 2-3 moves use a pre-programmed opening book instead of calculation.</p>
             <p>Programmed moves:</p>
             <ul>
-                <li>White's first move: 4 options (e4, d4, c3, Nf3)</li>
+                <li>White's first move: 4 options (e4, d4, c4, Nf3)</li>
                 <li>Black's response to e4: 4 options (e5, c5, e6, c6)</li>
                 <li>Black's response to d4: 3 options (d5, Nf6, f6)</li>
             </ul>
@@ -1116,10 +1123,10 @@
         <div class="mobile-menu-content" onclick="event.stopPropagation()">
             <h3>Game Mode</h3>
             <div class="mode-buttons">
-                <button onclick="setMode('pvp'); closeMobileMenu()" aria-label="Play against another human player">Player vs Player</button>
-                <button onclick="setMode('ai'); closeMobileMenu()" aria-label="Play against the AI">Player vs AI</button>
+                <button id="mobileModeBtn-pvp" onclick="setMode('pvp'); closeMobileMenu()" aria-label="Play against another human player">Player vs Player</button>
+                <button id="mobileModeBtn-ai" class="active" onclick="setMode('ai'); closeMobileMenu()" aria-label="Play against the AI">Player vs AI</button>
             </div>
-            <button onclick="setMode('watch'); closeMobileMenu()" style="margin-top: 10px;" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
+            <button id="mobileModeBtn-watch" onclick="setMode('watch'); closeMobileMenu()" style="margin-top: 10px;" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
 
             <h3 style="margin-top: 20px;">AI Difficulty</h3>
             <div id="mobileSingleAIDifficulty">
@@ -1222,11 +1229,11 @@
                     <h3>Captured Pieces</h3>
                     <div class="captured-container">
                         <div class="captured-row">
-                            <strong>White:</strong>
+                            <strong>By White:</strong>
                             <div class="captured-pieces" id="whiteCaptured"></div>
                         </div>
                         <div class="captured-row">
-                            <strong>Black:</strong>
+                            <strong>By Black:</strong>
                             <div class="captured-pieces" id="blackCaptured"></div>
                         </div>
                     </div>
@@ -1257,10 +1264,10 @@
             <div class="panel">
                 <h2>Game Mode</h2>
                 <div class="mode-buttons">
-                    <button onclick="setMode('pvp')" aria-label="Play against another human player">Player vs Player</button>
-                    <button onclick="setMode('ai')" aria-label="Play against the AI">Player vs AI</button>
+                    <button id="modeBtn-pvp" onclick="setMode('pvp')" aria-label="Play against another human player">Player vs Player</button>
+                    <button id="modeBtn-ai" class="active" onclick="setMode('ai')" aria-label="Play against the AI">Player vs AI</button>
                 </div>
-                <button onclick="setMode('watch')" style="margin-top: 10px;" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
+                <button id="modeBtn-watch" onclick="setMode('watch')" style="margin-top: 10px;" aria-label="Watch two AIs play against each other">Watch AI vs AI</button>
             </div>
 
             <div class="panel">
@@ -1326,6 +1333,15 @@
             'k': '♔', 'q': '♕', 'r': '♖', 'b': '♗', 'n': '♘', 'p': '♙'
         };
 
+        // Timing constants (in milliseconds)
+        const ARROW_FADE_DELAY = 4000;       // Time before move arrow starts fading
+        const ARROW_FADE_DURATION = 500;     // Duration of fade animation
+        const HINT_ARROW_DISPLAY_TIME = 1500; // Time hint arrow is shown
+        const GAME_OVER_DIALOG_DELAY = 2000; // Time game over dialog is shown
+        const AI_MOVE_DELAY = 500;           // Delay before AI makes a move
+        const AI_WATCH_DELAY = 1000;         // Delay between AI moves in watch mode
+        const AI_THINKING_MIN_DISPLAY = 300; // Minimum display time for thinking indicator
+
         // Game state
         let board = [];
         let selectedSquare = null;
@@ -1347,6 +1363,8 @@
         let arrowFadeTimeout = null;
         let arrowFadeTimeoutMove = null;
         let arrowRemovalTimeout = null; // Track nested timeout for arrow removal
+        let hintArrowTimeout = null; // Track hint arrow fade timeout
+        let hintArrowRemovalTimeout = null; // Track hint arrow removal timeout
         let positionHistory = [];
         let watchMatchRunning = false;
         let gameOverReason = '';
@@ -1371,7 +1389,7 @@
             'd2d4': [
                 { from: { row: 1, col: 3 }, to: { row: 3, col: 3 } }, // d5
                 { from: { row: 0, col: 6 }, to: { row: 2, col: 5 } }, // Nf6
-                { from: { row: 1, col: 5 }, to: { row: 2, col: 5 } }  // f6 (Dutch)
+                { from: { row: 1, col: 5 }, to: { row: 3, col: 5 } }  // f5 (Dutch)
             ]
         };
 
@@ -1418,6 +1436,14 @@
             if (arrowRemovalTimeout) {
                 clearTimeout(arrowRemovalTimeout);
                 arrowRemovalTimeout = null;
+            }
+            if (hintArrowTimeout) {
+                clearTimeout(hintArrowTimeout);
+                hintArrowTimeout = null;
+            }
+            if (hintArrowRemovalTimeout) {
+                clearTimeout(hintArrowRemovalTimeout);
+                hintArrowRemovalTimeout = null;
             }
             arrowFadeTimeoutMove = null;
 
@@ -1521,9 +1547,26 @@
         function drawMoveArrow() {
             const svg = document.getElementById('moveArrowSvg');
 
-            // Remove old arrows
-            const oldArrows = svg.querySelectorAll('line, circle');
+            // Remove old arrows (including hint arrows)
+            const oldArrows = svg.querySelectorAll('line, circle, .hint-arrow');
             oldArrows.forEach(el => el.remove());
+
+            // Clear hint arrow timeouts when move is made
+            if (hintArrowTimeout) {
+                clearTimeout(hintArrowTimeout);
+                hintArrowTimeout = null;
+            }
+            if (hintArrowRemovalTimeout) {
+                clearTimeout(hintArrowRemovalTimeout);
+                hintArrowRemovalTimeout = null;
+            }
+
+            // Clear hint text when a move is made
+            const hintText = document.getElementById('hintText');
+            if (hintText) {
+                hintText.style.display = 'none';
+                hintText.textContent = '';
+            }
 
             if (!lastMove) {
                 // Clear timeout if no move to show
@@ -1619,9 +1662,13 @@
 
                     if (!gameOver) {
                         if (gameMode === 'ai' && currentPlayer === 'black') {
-                            setTimeout(makeAIMove, 500);
-                        } else if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
-                            setTimeout(makeAIMove, 1000);
+                            setTimeout(() => {
+                                if (!gameOver) makeAIMove();
+                            }, 500);
+                        } else if (gameMode === 'watch' && watchMatchRunning) {
+                            setTimeout(() => {
+                                if (!gameOver && watchMatchRunning) makeAIMove();
+                            }, 1000);
                         }
                     }
                 } else {
@@ -1830,9 +1877,12 @@
             // Check if king is in check
             if (isInCheck(player)) return false;
 
-            // Check if path is clear (only between king and destination)
+            // Check if path is clear between king and rook
+            // For kingside: check f, g (cols 5, 6)
+            // For queenside: check d, c, b (cols 3, 2, 1) - rook at col 0 needs b1 clear to pass
+            const rookCol = isKingside ? 7 : 0;
             const step = isKingside ? 1 : -1;
-            for (let col = fromCol + step; col !== toCol; col += step) {
+            for (let col = fromCol + step; col !== rookCol; col += step) {
                 if (board[fromRow][col]) return false;
             }
 
@@ -2013,8 +2063,7 @@
             }
 
             // Track position for threefold repetition
-            const positionKey = JSON.stringify(board);
-            positionHistory.push(positionKey);
+            positionHistory.push(getPositionKey());
 
             // Check game over conditions
             checkGameOver();
@@ -2058,6 +2107,18 @@
                 }
             }
             return null;
+        }
+
+        // Generate position key for threefold repetition (FIDE rules)
+        // Two positions are identical if: same board, same player to move,
+        // same castling rights, and same en passant possibilities
+        function getPositionKey() {
+            return JSON.stringify({
+                board: board,
+                player: currentPlayer,
+                castling: castlingRights,
+                enPassant: enPassantTarget
+            });
         }
 
         // Get all legal moves for current player
@@ -2124,7 +2185,8 @@
                     overlay.classList.add('show');
                     gameOverDiv.classList.add('show');
                     // Auto-hide after 2 seconds
-                    setTimeout(() => {
+                    if (gameOverDialogTimeout) clearTimeout(gameOverDialogTimeout);
+                    gameOverDialogTimeout = setTimeout(() => {
                         overlay.classList.remove('show');
                         gameOverDiv.classList.remove('show');
                     }, 2000);
@@ -2283,8 +2345,7 @@
                     }
 
                     // Track position for threefold repetition
-                    const positionKey = JSON.stringify(board);
-                    positionHistory.push(positionKey);
+                    positionHistory.push(getPositionKey());
 
                     // Update UI
                     renderBoard();
@@ -2299,9 +2360,13 @@
                     // Trigger AI move if needed
                     if (!gameOver) {
                         if (gameMode === 'ai' && currentPlayer === 'black') {
-                            setTimeout(makeAIMove, 500);
-                        } else if (gameMode === 'watch') {
-                            setTimeout(makeAIMove, 1000);
+                            setTimeout(() => {
+                                if (!gameOver) makeAIMove();
+                            }, 500);
+                        } else if (gameMode === 'watch' && watchMatchRunning) {
+                            setTimeout(() => {
+                                if (!gameOver && watchMatchRunning) makeAIMove();
+                            }, 1000);
                         }
                     }
                 };
@@ -2364,7 +2429,9 @@
                     renderBoard();
 
                     if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
-                        setTimeout(makeAIMove, 1000);
+                        setTimeout(() => {
+                            if (!gameOver && watchMatchRunning) makeAIMove();
+                        }, 1000);
                     }
                     return;
                 }
@@ -2429,11 +2496,10 @@
                                 promotionPiece);
                         renderBoard();
 
-                        // Show think time in status
-                        console.log(`AI thought for ${thinkTime} seconds`);
-
                         if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
-                            setTimeout(makeAIMove, 1000);
+                            setTimeout(() => {
+                                if (!gameOver && watchMatchRunning) makeAIMove();
+                            }, 1000);
                         }
                     }
                 }, delayNeeded);
@@ -2457,6 +2523,77 @@
             }
 
             return null;
+        }
+
+        // Simulate a move for minimax search (handles special moves)
+        function simulateMoveForMinimax(move, player) {
+            const piece = board[move.from.row][move.from.col];
+            const pieceType = piece.toLowerCase();
+            const fromRow = move.from.row;
+            const fromCol = move.from.col;
+            const toRow = move.to.row;
+            const toCol = move.to.col;
+            const capturedPiece = board[toRow][toCol]; // Save before move
+
+            // Handle en passant capture
+            if (pieceType === 'p' && enPassantTarget &&
+                toRow === enPassantTarget.row && toCol === enPassantTarget.col) {
+                const capturedPawnRow = player === 'white' ? toRow + 1 : toRow - 1;
+                board[capturedPawnRow][toCol] = '';
+            }
+
+            // Handle castling - move rook
+            if (pieceType === 'k' && Math.abs(toCol - fromCol) === 2) {
+                const isKingside = toCol > fromCol;
+                const rookFromCol = isKingside ? 7 : 0;
+                const rookToCol = isKingside ? toCol - 1 : toCol + 1;
+                board[fromRow][rookToCol] = board[fromRow][rookFromCol];
+                board[fromRow][rookFromCol] = '';
+            }
+
+            // Move the piece
+            board[toRow][toCol] = piece;
+            board[fromRow][fromCol] = '';
+
+            // Handle pawn promotion (auto-queen for AI)
+            if (pieceType === 'p' && (toRow === 0 || toRow === 7)) {
+                board[toRow][toCol] = player === 'white' ? 'Q' : 'q';
+            }
+
+            // Update en passant target
+            if (pieceType === 'p' && Math.abs(toRow - fromRow) === 2) {
+                enPassantTarget = { row: (fromRow + toRow) / 2, col: toCol };
+            } else {
+                enPassantTarget = null;
+            }
+
+            // Update castling rights
+            if (pieceType === 'k') {
+                if (player === 'white') {
+                    castlingRights.white.kingside = false;
+                    castlingRights.white.queenside = false;
+                } else {
+                    castlingRights.black.kingside = false;
+                    castlingRights.black.queenside = false;
+                }
+            }
+            if (pieceType === 'r') {
+                if (player === 'white') {
+                    if (fromCol === 0 && fromRow === 7) castlingRights.white.queenside = false;
+                    if (fromCol === 7 && fromRow === 7) castlingRights.white.kingside = false;
+                } else {
+                    if (fromCol === 0 && fromRow === 0) castlingRights.black.queenside = false;
+                    if (fromCol === 7 && fromRow === 0) castlingRights.black.kingside = false;
+                }
+            }
+
+            // Update castling rights when rook is captured
+            if (capturedPiece && capturedPiece.toLowerCase() === 'r') {
+                if (toRow === 7 && toCol === 0) castlingRights.white.queenside = false;
+                if (toRow === 7 && toCol === 7) castlingRights.white.kingside = false;
+                if (toRow === 0 && toCol === 0) castlingRights.black.queenside = false;
+                if (toRow === 0 && toCol === 7) castlingRights.black.kingside = false;
+            }
         }
 
         // Minimax algorithm with alpha-beta pruning
@@ -2488,12 +2625,11 @@
                     const originalBoard = JSON.parse(JSON.stringify(board));
                     const originalCurrentPlayer = currentPlayer;
                     const originalCastlingRights = JSON.parse(JSON.stringify(castlingRights));
-                    const originalEnPassantTarget = enPassantTarget;
+                    const originalEnPassantTarget = enPassantTarget ? { ...enPassantTarget } : null;
 
                     try {
                         currentPlayer = player;
-                        board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
-                        board[move.from.row][move.from.col] = '';
+                        simulateMoveForMinimax(move, player);
 
                         const nextPlayer = player === 'white' ? 'black' : 'white';
                         const result = minimax(depth - 1, nextPlayer, alpha, beta, false);
@@ -2525,12 +2661,11 @@
                     const originalBoard = JSON.parse(JSON.stringify(board));
                     const originalCurrentPlayer = currentPlayer;
                     const originalCastlingRights = JSON.parse(JSON.stringify(castlingRights));
-                    const originalEnPassantTarget = enPassantTarget;
+                    const originalEnPassantTarget = enPassantTarget ? { ...enPassantTarget } : null;
 
                     try {
                         currentPlayer = player;
-                        board[move.to.row][move.to.col] = board[move.from.row][move.from.col];
-                        board[move.from.row][move.from.col] = '';
+                        simulateMoveForMinimax(move, player);
 
                         const nextPlayer = player === 'white' ? 'black' : 'white';
                         const result = minimax(depth - 1, nextPlayer, alpha, beta, true);
@@ -2741,14 +2876,23 @@
             svg.appendChild(line);
             svg.appendChild(circle);
 
-            // Fade out and remove after 1.5 seconds
-            setTimeout(() => {
-                svg.classList.add('fade-out');
-                setTimeout(() => {
-                    const hintArrows = svg.querySelectorAll('.hint-arrow');
-                    hintArrows.forEach(el => el.remove());
-                    svg.classList.remove('fade-out');
-                    svg.style.opacity = '1';
+            // Clear any existing hint timeouts
+            if (hintArrowTimeout) clearTimeout(hintArrowTimeout);
+            if (hintArrowRemovalTimeout) clearTimeout(hintArrowRemovalTimeout);
+
+            // Fade out and remove after 1.5 seconds (only hint arrows, not move arrows)
+            hintArrowTimeout = setTimeout(() => {
+                // Apply fade to hint arrows only using CSS transition on elements
+                const hintArrows = svg.querySelectorAll('.hint-arrow');
+                hintArrows.forEach(el => {
+                    el.style.transition = 'opacity 0.5s';
+                    el.style.opacity = '0';
+                });
+                hintArrowRemovalTimeout = setTimeout(() => {
+                    const arrows = svg.querySelectorAll('.hint-arrow');
+                    arrows.forEach(el => el.remove());
+                    hintArrowTimeout = null;
+                    hintArrowRemovalTimeout = null;
                 }, 500); // Wait for fade transition
             }, 1500);
         }
@@ -2892,14 +3036,19 @@
                 return;
             }
 
-            // Undo 2 moves (opponent's move + your move) to get back to your turn
-            if (moveHistory.length < 2) {
-                // If less than 2 moves, just undo 1
-                if (!undoSingleMove()) return;
+            if (gameMode === 'ai') {
+                // In AI mode, undo 2 moves (AI's move + your move) to get back to your turn
+                if (moveHistory.length < 2) {
+                    // If less than 2 moves, just undo 1
+                    if (!undoSingleMove()) return;
+                } else {
+                    // Undo AI's move
+                    if (!undoSingleMove()) return;
+                    // Undo your move
+                    if (!undoSingleMove()) return;
+                }
             } else {
-                // Undo opponent's move
-                if (!undoSingleMove()) return;
-                // Undo your move
+                // In PvP mode, just undo 1 move
                 if (!undoSingleMove()) return;
             }
 
@@ -2928,6 +3077,18 @@
 
         function setMode(mode) {
             gameMode = mode;
+
+            // Update active class on mode buttons (desktop)
+            ['pvp', 'ai', 'watch'].forEach(m => {
+                const btn = document.getElementById(`modeBtn-${m}`);
+                if (btn) btn.classList.toggle('active', m === mode);
+            });
+
+            // Update active class on mode buttons (mobile)
+            ['pvp', 'ai', 'watch'].forEach(m => {
+                const btn = document.getElementById(`mobileModeBtn-${m}`);
+                if (btn) btn.classList.toggle('active', m === mode);
+            });
 
             // Show/hide appropriate difficulty selectors (desktop)
             const singleDiff = document.getElementById('singleAIDifficulty');
