@@ -1,6 +1,6 @@
 # coolChess
 
-A fully-featured, browser-based chess game with AI opponent powered by minimax algorithm with alpha-beta pruning.
+A fully-featured, browser-based chess game with AI opponent powered by minimax algorithm with alpha-beta pruning, transposition tables, and intelligent move ordering.
 
 ## Features
 
@@ -58,11 +58,13 @@ coolchess/
 ├── css/
 │   └── style.css       # Complete styling
 ├── js/
-│   ├── constants.js    # PIECES, timing, opening book
-│   ├── engine.js       # Game state and rules
-│   ├── ai.js           # Minimax and evaluation
+│   ├── constants.js    # PIECES, timing, opening book, Zobrist tables
+│   ├── engine.js       # Game state, rules, hash computation
+│   ├── ai.js           # Minimax, evaluation, transposition table
 │   ├── ui.js           # Rendering and dialogs
 │   └── main.js         # Entry point
+├── assets/
+│   └── img/            # Images (info dialog)
 ├── README.md           # This file
 └── CLAUDE.md           # Development documentation
 ```
@@ -80,10 +82,12 @@ coolchess/
 **AI Engine** (ai.js):
 
 - Minimax algorithm with alpha-beta pruning
+- **Transposition table** (~1M entries) for position caching
+- **Zobrist hashing** for fast position identification
+- **MVV-LVA move ordering** for better pruning efficiency
 - Configurable search depth for difficulty levels
 - Position evaluation with piece-square tables
-- King safety assessment
-- Mobility-based evaluation
+- King safety and mobility evaluation
 - Opening book for move variety
 
 **UI Layer** (ui.js):
