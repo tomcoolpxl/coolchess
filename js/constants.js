@@ -2,6 +2,47 @@
 // CONSTANTS - Shared constants for the chess game
 // ============================================================================
 
+// Zobrist hashing tables for transposition table
+const ZOBRIST = {
+    pieces: [], // [64][12] random 32-bit integers
+    castling: [], // [4] for each castling right
+    enPassant: [], // [8] for each file
+    side: 0 // XOR when black to move
+};
+
+// Piece to index mapping for Zobrist hashing
+const PIECE_INDEX = {
+    'P': 0, 'N': 1, 'B': 2, 'R': 3, 'Q': 4, 'K': 5,
+    'p': 6, 'n': 7, 'b': 8, 'r': 9, 'q': 10, 'k': 11
+};
+
+// Initialize Zobrist hash tables with random values
+(function initZobrist() {
+    // Use a seeded pseudo-random number generator for reproducibility
+    let seed = 12345;
+    function random32() {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        const high = seed;
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        const low = seed;
+        return ((high << 16) | (low & 0xffff)) >>> 0;
+    }
+
+    for (let sq = 0; sq < 64; sq++) {
+        ZOBRIST.pieces[sq] = [];
+        for (let p = 0; p < 12; p++) {
+            ZOBRIST.pieces[sq][p] = random32();
+        }
+    }
+    for (let i = 0; i < 4; i++) {
+        ZOBRIST.castling[i] = random32();
+    }
+    for (let i = 0; i < 8; i++) {
+        ZOBRIST.enPassant[i] = random32();
+    }
+    ZOBRIST.side = random32();
+})();
+
 // Chess pieces Unicode characters (solid)
 const PIECES = {
     'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟',

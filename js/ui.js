@@ -730,6 +730,9 @@ function startNewGame() {
     clearAllTimeouts();
     watchMatchRunning = false;
 
+    // Clear transposition table for fresh game
+    ttClear();
+
     // Reset and start
     initGame();
     initUI();

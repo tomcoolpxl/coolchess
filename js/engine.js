@@ -499,6 +499,30 @@ function getPositionKey() {
     });
 }
 
+// Compute Zobrist hash for current position
+function computeHash() {
+    let hash = 0;
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const piece = board[row][col];
+            if (piece) {
+                const sq = row * 8 + col;
+                hash ^= ZOBRIST.pieces[sq][PIECE_INDEX[piece]];
+            }
+        }
+    }
+    // Castling rights
+    if (castlingRights.white.kingside) hash ^= ZOBRIST.castling[0];
+    if (castlingRights.white.queenside) hash ^= ZOBRIST.castling[1];
+    if (castlingRights.black.kingside) hash ^= ZOBRIST.castling[2];
+    if (castlingRights.black.queenside) hash ^= ZOBRIST.castling[3];
+    // En passant
+    if (enPassantTarget) hash ^= ZOBRIST.enPassant[enPassantTarget.col];
+    // Side to move
+    if (currentPlayer === 'black') hash ^= ZOBRIST.side;
+    return hash >>> 0; // Ensure unsigned
+}
+
 // Get all legal moves for current player
 function getAllLegalMoves(player) {
     const moves = [];

@@ -3,9 +3,100 @@
 // ============================================================================
 
 // AI difficulty settings (global)
-let aiDifficulty = 2;
-let aiDifficultyWhite = 2;
-let aiDifficultyBlack = 2;
+let aiDifficulty = 3;
+let aiDifficultyWhite = 3;
+let aiDifficultyBlack = 3;
+
+// ============================================================================
+// Transposition Table
+// ============================================================================
+const TT_SIZE = 1 << 20; // ~1M entries
+const transpositionTable = new Array(TT_SIZE);
+
+// Entry flags
+const TT_EXACT = 0;
+const TT_ALPHA = 1; // Upper bound (failed low)
+const TT_BETA = 2;  // Lower bound (failed high)
+
+function ttStore(hash, depth, score, flag, bestMove) {
+    const index = hash % TT_SIZE;
+    // Replace if deeper or same depth (always-replace scheme)
+    const existing = transpositionTable[index];
+    if (!existing || existing.depth <= depth) {
+        transpositionTable[index] = { hash, depth, score, flag, bestMove };
+    }
+}
+
+function ttLookup(hash, depth, alpha, beta) {
+    const index = hash % TT_SIZE;
+    const entry = transpositionTable[index];
+    if (entry && entry.hash === hash) {
+        // Return best move for move ordering even if depth is insufficient
+        const result = { bestMove: entry.bestMove };
+
+        if (entry.depth >= depth) {
+            if (entry.flag === TT_EXACT) {
+                result.score = entry.score;
+                result.cutoff = true;
+            } else if (entry.flag === TT_ALPHA && entry.score <= alpha) {
+                result.score = alpha;
+                result.cutoff = true;
+            } else if (entry.flag === TT_BETA && entry.score >= beta) {
+                result.score = beta;
+                result.cutoff = true;
+            }
+        }
+        return result;
+    }
+    return null;
+}
+
+function ttClear() {
+    for (let i = 0; i < TT_SIZE; i++) {
+        transpositionTable[i] = undefined;
+    }
+}
+
+// ============================================================================
+// Move Ordering - MVV-LVA (Most Valuable Victim - Least Valuable Attacker)
+// ============================================================================
+const MVV_LVA_VALUES = {
+    'p': 1, 'P': 1,
+    'n': 3, 'N': 3,
+    'b': 3, 'B': 3,
+    'r': 5, 'R': 5,
+    'q': 9, 'Q': 9,
+    'k': 100, 'K': 100
+};
+
+function orderMoves(moves, ttBestMove) {
+    return moves.sort((a, b) => {
+        // TT best move first
+        if (ttBestMove) {
+            const aIsTT = a.from.row === ttBestMove.from.row && a.from.col === ttBestMove.from.col &&
+                         a.to.row === ttBestMove.to.row && a.to.col === ttBestMove.to.col;
+            const bIsTT = b.from.row === ttBestMove.from.row && b.from.col === ttBestMove.from.col &&
+                         b.to.row === ttBestMove.to.row && b.to.col === ttBestMove.to.col;
+            if (aIsTT) return -1;
+            if (bIsTT) return 1;
+        }
+
+        const victimA = board[a.to.row][a.to.col];
+        const victimB = board[b.to.row][b.to.col];
+
+        // Captures first, ordered by MVV-LVA
+        if (victimA && victimB) {
+            const attackerA = board[a.from.row][a.from.col];
+            const attackerB = board[b.from.row][b.from.col];
+            const scoreA = MVV_LVA_VALUES[victimA] * 10 - MVV_LVA_VALUES[attackerA];
+            const scoreB = MVV_LVA_VALUES[victimB] * 10 - MVV_LVA_VALUES[attackerB];
+            return scoreB - scoreA; // Higher score first
+        }
+        if (victimA) return -1; // a is capture, goes first
+        if (victimB) return 1;  // b is capture, goes first
+        return 0; // Both non-captures, keep order
+    });
+}
 
 // AI Move using Minimax algorithm
 function makeAIMove() {
@@ -167,13 +258,22 @@ function simulateMoveForMinimax(move, player) {
     }
 }
 
-// Minimax algorithm with alpha-beta pruning
+// Minimax algorithm with alpha-beta pruning, transposition table, and move ordering
 function minimax(depth, player, alpha, beta, isMaximizing) {
+    const originalAlpha = alpha;
+    const hash = computeHash();
+
+    // Transposition table lookup
+    const ttHit = ttLookup(hash, depth, alpha, beta);
+    if (ttHit && ttHit.cutoff) {
+        return { score: ttHit.score, move: ttHit.bestMove };
+    }
+
     if (depth === 0) {
         return { score: evaluateBoard() };
     }
 
-    const moves = getAllLegalMoves(player);
+    let moves = getAllLegalMoves(player);
 
     if (moves.length === 0) {
         const originalPlayer = currentPlayer;
@@ -185,6 +285,10 @@ function minimax(depth, player, alpha, beta, isMaximizing) {
         currentPlayer = originalPlayer;
         return { score: 0 }; // Stalemate
     }
+
+    // Order moves for better pruning (TT best move first, then captures by MVV-LVA)
+    const ttBestMove = ttHit ? ttHit.bestMove : null;
+    moves = orderMoves(moves, ttBestMove);
 
     let bestMove = null;
 
@@ -222,6 +326,15 @@ function minimax(depth, player, alpha, beta, isMaximizing) {
             }
         }
 
+        // Store in transposition table
+        let flag = TT_EXACT;
+        if (maxScore <= originalAlpha) {
+            flag = TT_ALPHA;
+        } else if (maxScore >= beta) {
+            flag = TT_BETA;
+        }
+        ttStore(hash, depth, maxScore, flag, bestMove);
+
         return { score: maxScore, move: bestMove };
     } else {
         let minScore = Infinity;
@@ -256,6 +369,15 @@ function minimax(depth, player, alpha, beta, isMaximizing) {
                 enPassantTarget = originalEnPassantTarget;
             }
         }
+
+        // Store in transposition table
+        let flag = TT_EXACT;
+        if (minScore >= beta) {
+            flag = TT_BETA;
+        } else if (minScore <= alpha) {
+            flag = TT_ALPHA;
+        }
+        ttStore(hash, depth, minScore, flag, bestMove);
 
         return { score: minScore, move: bestMove };
     }
