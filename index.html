@@ -28,8 +28,10 @@
             <p>The algorithm works by:</p>
             <ul>
                 <li>Generating all possible legal moves from the current position</li>
+                <li>Ordering moves intelligently (captures and checks first) to improve pruning efficiency</li>
                 <li>For each move, simulating the opponent's best response</li>
                 <li>Recursively evaluating positions to a specified depth</li>
+                <li>Caching evaluated positions in a transposition table to avoid re-computing identical board states</li>
                 <li>Scoring positions based on material count and piece positioning</li>
                 <li>Selecting the move that maximizes the AI's position while minimizing yours</li>
             </ul>
@@ -46,7 +48,7 @@
             <p>Total: 11 pre-programmed moves. The AI randomly selects from available options.</p>
         </div>
         <div style="text-align: center; margin-top: 20px;">
-            <img src="assets/img/maurice_cool.jpg" alt="Maurice" style="max-width: 150px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            <img src="assets/img/maurice_cool.jpg" alt="Maurice" style="max-width: 300px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
         </div>
         <button onclick="closeInfo()">Close</button>
     </div>
