@@ -1,5 +1,5 @@
 // ============================================================================
-// ENGINE - Core game state and logic
+// ENGINE - Core game state and logic (pure - no DOM manipulation)
 // ============================================================================
 
 // Game state variables (global)
@@ -244,11 +244,13 @@ function canCastle(fromRow, fromCol, toRow, toCol) {
     }
 }
 
-// Make a move (returns true if move requires promotion dialog)
+// Make a move - PURE function, returns result object
+// Returns: { success: boolean, needsPromotion: boolean, moveInfo: object }
 function makeMove(fromRow, fromCol, toRow, toCol, promotionPiece = null) {
     const piece = board[fromRow][fromCol];
     const capturedPiece = board[toRow][toCol];
     const pieceType = piece.toLowerCase();
+    const playerMakingMove = currentPlayer;
 
     // Save old en passant target before clearing
     const oldEnPassantTarget = enPassantTarget;
@@ -325,10 +327,18 @@ function makeMove(fromRow, fromCol, toRow, toCol, promotionPiece = null) {
         if (promotionPiece) {
             board[toRow][toCol] = promotionPiece;
         } else {
-            // Need to show promotion dialog
+            // Need to show promotion dialog - don't finalize move yet
             pendingPromotion = { row: toRow, col: toCol };
-            showPromotionDialog(toRow, toCol);
-            return; // Don't continue until promotion is chosen
+            return {
+                success: true,
+                needsPromotion: true,
+                moveInfo: {
+                    from: { row: fromRow, col: fromCol },
+                    to: { row: toRow, col: toCol },
+                    piece: piece,
+                    player: playerMakingMove
+                }
+            };
         }
     }
 
@@ -368,16 +378,14 @@ function makeMove(fromRow, fromCol, toRow, toCol, promotionPiece = null) {
     // Update last move
     lastMove = { from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } };
 
-    // Add to move history display (both desktop and mobile)
-    const pieceSymbol = currentPlayer === 'white' ? PIECES_HOLLOW[piece] : PIECES[piece];
-    const moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + toCol)}${8 - toRow}`;
-    const moveDiv = document.createElement('div');
-    moveDiv.textContent = `${fullMoveNumber}. ${moveNotation}`;
-    const mobileMoveDiv = moveDiv.cloneNode(true);
-    document.getElementById('moveHistory').appendChild(moveDiv);
-    document.getElementById('moveHistory').scrollTop = document.getElementById('moveHistory').scrollHeight;
-    document.getElementById('mobileMoveHistory').appendChild(mobileMoveDiv);
-    document.getElementById('mobileMoveHistory').scrollTop = document.getElementById('mobileMoveHistory').scrollHeight;
+    // Build move info for UI
+    const moveInfo = {
+        from: { row: fromRow, col: fromCol },
+        to: { row: toRow, col: toCol },
+        piece: piece,
+        player: playerMakingMove,
+        moveNumber: fullMoveNumber
+    };
 
     // Switch player
     currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
@@ -391,12 +399,60 @@ function makeMove(fromRow, fromCol, toRow, toCol, promotionPiece = null) {
     positionHistory.push(getPositionKey());
 
     // Check game over conditions
-    checkGameOver();
+    const gameOverResult = checkGameOver();
 
-    updateStatus();
-    updateCapturedPieces();
-    updateEvaluationBar();
-    updateMoveCounter();
+    return {
+        success: true,
+        needsPromotion: false,
+        moveInfo: moveInfo,
+        gameOverResult: gameOverResult
+    };
+}
+
+// Complete a pending promotion
+function completePromotion(promotionPiece) {
+    if (!pendingPromotion) return null;
+
+    const row = pendingPromotion.row;
+    const col = pendingPromotion.col;
+    const playerMakingMove = currentPlayer;
+
+    board[row][col] = promotionPiece;
+    pendingPromotion = null;
+
+    // Get the original move info from history
+    const lastMoveData = moveHistory[moveHistory.length - 1];
+    const moveInfo = {
+        from: lastMoveData.from,
+        to: { row, col },
+        piece: lastMoveData.piece,
+        player: playerMakingMove,
+        moveNumber: fullMoveNumber,
+        promotedTo: promotionPiece
+    };
+
+    // Update last move
+    lastMove = { from: lastMoveData.from, to: { row, col } };
+
+    // Switch player
+    currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+
+    // Update fullmove number (increments after black's move)
+    if (currentPlayer === 'white') {
+        fullMoveNumber++;
+    }
+
+    // Track position for threefold repetition
+    positionHistory.push(getPositionKey());
+
+    // Check game over conditions
+    const gameOverResult = checkGameOver();
+
+    return {
+        success: true,
+        moveInfo: moveInfo,
+        gameOverResult: gameOverResult
+    };
 }
 
 // Check if king is in check
@@ -469,28 +525,20 @@ function getAllLegalMoves(player) {
     return moves;
 }
 
-// Check if game is over
+// Check if game is over - PURE function, returns result object
+// Returns: { isOver: boolean, reason: string, winner: string|null }
 function checkGameOver() {
-    const overlay = document.getElementById('overlay');
-    const gameOverDiv = document.getElementById('gameOver');
-    const title = document.getElementById('gameOverTitle');
-    const message = document.getElementById('gameOverMessage');
-
     // Check for 50-move rule (100 half-moves = 50 full moves)
     if (halfMoveClock >= 100) {
         gameOver = true;
         selectedSquare = null;
         gameOverReason = '50-Move Rule Draw';
-        title.textContent = '50-Move Rule Draw';
-        message.textContent = '50 moves without a capture or pawn move. The game is a draw.';
-        overlay.classList.add('show');
-        gameOverDiv.classList.add('show');
-        if (gameOverDialogTimeout) clearTimeout(gameOverDialogTimeout);
-        gameOverDialogTimeout = setTimeout(() => {
-            overlay.classList.remove('show');
-            gameOverDiv.classList.remove('show');
-        }, GAME_OVER_DIALOG_DELAY);
-        return;
+        return {
+            isOver: true,
+            reason: '50-Move Rule Draw',
+            message: '50 moves without a capture or pawn move. The game is a draw.',
+            winner: null
+        };
     }
 
     // Check for threefold repetition
@@ -501,16 +549,12 @@ function checkGameOver() {
             gameOver = true;
             selectedSquare = null;
             gameOverReason = 'Draw by Repetition';
-            title.textContent = 'Draw by Repetition';
-            message.textContent = 'The same position occurred three times. The game is a draw.';
-            overlay.classList.add('show');
-            gameOverDiv.classList.add('show');
-            if (gameOverDialogTimeout) clearTimeout(gameOverDialogTimeout);
-            gameOverDialogTimeout = setTimeout(() => {
-                overlay.classList.remove('show');
-                gameOverDiv.classList.remove('show');
-            }, GAME_OVER_DIALOG_DELAY);
-            return;
+            return {
+                isOver: true,
+                reason: 'Draw by Repetition',
+                message: 'The same position occurred three times. The game is a draw.',
+                winner: null
+            };
         }
     }
 
@@ -523,28 +567,30 @@ function checkGameOver() {
         if (isInCheck(currentPlayer)) {
             const winner = currentPlayer === 'white' ? 'Black' : 'White';
             gameOverReason = `Checkmate - ${winner} wins!`;
-            title.textContent = 'Checkmate!';
-            message.textContent = `${winner} wins!`;
+            return {
+                isOver: true,
+                reason: 'Checkmate!',
+                message: `${winner} wins!`,
+                winner: winner.toLowerCase()
+            };
         } else {
             gameOverReason = 'Stalemate - Draw';
-            title.textContent = 'Stalemate!';
-            message.textContent = 'The game is a draw.';
+            return {
+                isOver: true,
+                reason: 'Stalemate!',
+                message: 'The game is a draw.',
+                winner: null
+            };
         }
-
-        overlay.classList.add('show');
-        gameOverDiv.classList.add('show');
-        if (gameOverDialogTimeout) clearTimeout(gameOverDialogTimeout);
-        gameOverDialogTimeout = setTimeout(() => {
-            overlay.classList.remove('show');
-            gameOverDiv.classList.remove('show');
-        }, GAME_OVER_DIALOG_DELAY);
-        updateButtonStates();
     }
+
+    return { isOver: false };
 }
 
-// Undo a single move and restore game state
+// Undo a single move and restore game state - PURE function
+// Returns: { success: boolean, undoneMove: object|null }
 function undoSingleMove() {
-    if (moveHistory.length === 0) return false;
+    if (moveHistory.length === 0) return { success: false, undoneMove: null };
 
     const lastMoveData = moveHistory.pop();
     board = lastMoveData.board;
@@ -587,15 +633,5 @@ function undoSingleMove() {
         lastMove = null;
     }
 
-    const moveHistoryDiv = document.getElementById('moveHistory');
-    if (moveHistoryDiv.lastChild) {
-        moveHistoryDiv.removeChild(moveHistoryDiv.lastChild);
-    }
-
-    const mobileMoveHistoryDiv = document.getElementById('mobileMoveHistory');
-    if (mobileMoveHistoryDiv.lastChild) {
-        mobileMoveHistoryDiv.removeChild(mobileMoveHistoryDiv.lastChild);
-    }
-
-    return true;
+    return { success: true, undoneMove: lastMoveData };
 }

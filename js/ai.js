@@ -15,10 +15,9 @@ function makeAIMove() {
     if (fullMoveNumber <= 3) {
         const bookMove = getOpeningBookMove();
         if (bookMove) {
-            makeMove(bookMove.from.row, bookMove.from.col,
+            executeMoveWithUI(bookMove.from.row, bookMove.from.col,
                     bookMove.to.row, bookMove.to.col,
                     bookMove.promotion);
-            renderBoard();
 
             if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
                 setTimeout(() => {
@@ -36,21 +35,7 @@ function makeAIMove() {
     }
 
     // Show thinking indicator
-    const thinkingDialog = document.getElementById('aiThinking');
-    const thinkingText = document.getElementById('aiThinkingText');
-    const mobileThinkingDialog = document.getElementById('mobileAiThinking');
-    const mobileThinkingText = document.getElementById('mobileAiThinkingText');
-    const difficultyNames = ['Beginner', 'Easy', 'Medium', 'Hard'];
-    const difficultyName = difficultyNames[currentDifficulty - 1] || 'Unknown';
-    const thinkingMessage = `${difficultyName} (depth ${currentDifficulty})`;
-    thinkingText.textContent = thinkingMessage;
-    thinkingDialog.classList.add('show');
-    if (mobileThinkingText) {
-        mobileThinkingText.textContent = thinkingMessage;
-    }
-    if (mobileThinkingDialog) {
-        mobileThinkingDialog.classList.add('show');
-    }
+    showAIThinking(currentDifficulty);
 
     // Use setTimeout to let the UI update before blocking
     setTimeout(() => {
@@ -65,10 +50,7 @@ function makeAIMove() {
 
         setTimeout(() => {
             // Hide thinking indicator
-            thinkingDialog.classList.remove('show');
-            if (mobileThinkingDialog) {
-                mobileThinkingDialog.classList.remove('show');
-            }
+            hideAIThinking();
 
             if (bestMove.move) {
                 // Check if it's a pawn promotion
@@ -81,10 +63,9 @@ function makeAIMove() {
                     }
                 }
 
-                makeMove(bestMove.move.from.row, bestMove.move.from.col,
+                executeMoveWithUI(bestMove.move.from.row, bestMove.move.from.col,
                         bestMove.move.to.row, bestMove.move.to.col,
                         promotionPiece);
-                renderBoard();
 
                 if (gameMode === 'watch' && watchMatchRunning && !gameOver) {
                     setTimeout(() => {

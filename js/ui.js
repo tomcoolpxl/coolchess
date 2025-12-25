@@ -282,40 +282,10 @@ function showPromotionDialog(row, col) {
             dialog.classList.remove('show');
             overlay.classList.remove('show');
 
-            board[row][col] = piece;
-            pendingPromotion = null;
+            // Use the engine's completePromotion and UI wrapper
+            executePromotionWithUI(piece);
 
-            if (moveHistory.length > 0) {
-                const lastHistoryMove = moveHistory[moveHistory.length - 1];
-                const fromRow = lastHistoryMove.from.row;
-                const fromCol = lastHistoryMove.from.col;
-                const originalPiece = lastHistoryMove.piece;
-
-                lastMove = { from: { row: fromRow, col: fromCol }, to: { row, col } };
-
-                const pieceSymbol = currentPlayer === 'white' ? PIECES_HOLLOW[originalPiece] : PIECES[originalPiece];
-                const moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + col)}${8 - row}`;
-                const moveDiv = document.createElement('div');
-                moveDiv.textContent = `${fullMoveNumber}. ${moveNotation}`;
-                const mobileMoveDiv = moveDiv.cloneNode(true);
-                document.getElementById('moveHistory').appendChild(moveDiv);
-                document.getElementById('moveHistory').scrollTop = document.getElementById('moveHistory').scrollHeight;
-                document.getElementById('mobileMoveHistory').appendChild(mobileMoveDiv);
-                document.getElementById('mobileMoveHistory').scrollTop = document.getElementById('mobileMoveHistory').scrollHeight;
-            }
-
-            currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-            if (currentPlayer === 'white') fullMoveNumber++;
-
-            positionHistory.push(getPositionKey());
-
-            renderBoard();
-            updateStatus();
-            updateEvaluationBar();
-            updateMoveCounter();
-            updateCapturedPieces();
-            checkGameOver();
-
+            // Trigger AI if needed
             if (!gameOver) {
                 if (gameMode === 'ai' && currentPlayer === 'black') {
                     setTimeout(() => { if (!gameOver) makeAIMove(); }, AI_MOVE_DELAY);
@@ -429,6 +399,102 @@ function updateButtonStates() {
 // USER INPUT HANDLING
 // ============================================================================
 
+// Add move to history display
+function addMoveToHistory(moveInfo) {
+    const piece = moveInfo.piece;
+    const from = moveInfo.from;
+    const to = moveInfo.to;
+    const moveNumber = moveInfo.moveNumber;
+    const promotedTo = moveInfo.promotedTo;
+
+    const isWhite = piece === piece.toUpperCase();
+    const pieceSymbol = isWhite ? PIECES_HOLLOW[piece] : PIECES[piece];
+    let moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + from.col)}${8 - from.row} → ${String.fromCharCode(97 + to.col)}${8 - to.row}`;
+
+    if (promotedTo) {
+        moveNotation += `=${PIECES[promotedTo]}`;
+    }
+
+    const moveDiv = document.createElement('div');
+    moveDiv.textContent = `${moveNumber}. ${moveNotation}`;
+    const mobileMoveDiv = moveDiv.cloneNode(true);
+
+    document.getElementById('moveHistory').appendChild(moveDiv);
+    document.getElementById('moveHistory').scrollTop = document.getElementById('moveHistory').scrollHeight;
+    document.getElementById('mobileMoveHistory').appendChild(mobileMoveDiv);
+    document.getElementById('mobileMoveHistory').scrollTop = document.getElementById('mobileMoveHistory').scrollHeight;
+}
+
+// Show game over dialog
+function showGameOverDialog(gameOverResult) {
+    const gameOverDialog = document.getElementById('gameOver');
+    const overlay = document.getElementById('overlay');
+    const title = document.getElementById('gameOverTitle');
+    const message = document.getElementById('gameOverMessage');
+
+    title.textContent = gameOverResult.reason;
+    message.textContent = gameOverResult.message;
+
+    overlay.classList.add('show');
+    gameOverDialog.classList.add('show');
+}
+
+// UI wrapper for makeMove - handles all UI updates after a move
+function executeMoveWithUI(fromRow, fromCol, toRow, toCol, promotionPiece = null) {
+    const result = makeMove(fromRow, fromCol, toRow, toCol, promotionPiece);
+
+    if (!result.success) return result;
+
+    // If promotion is needed, show dialog and return
+    if (result.needsPromotion) {
+        showPromotionDialog(toRow, toCol);
+        return result;
+    }
+
+    // Add move to history
+    addMoveToHistory(result.moveInfo);
+
+    // Update all UI elements
+    renderBoard();
+    updateStatus();
+    updateCapturedPieces();
+    updateEvaluationBar();
+    updateMoveCounter();
+    updateButtonStates();
+
+    // Handle game over
+    if (result.gameOverResult && result.gameOverResult.isOver) {
+        showGameOverDialog(result.gameOverResult);
+    }
+
+    return result;
+}
+
+// UI wrapper for completePromotion - handles all UI updates after promotion
+function executePromotionWithUI(promotionPiece) {
+    const result = completePromotion(promotionPiece);
+
+    if (!result || !result.success) return result;
+
+    // Add move to history
+    addMoveToHistory(result.moveInfo);
+
+    // Update all UI elements
+    renderBoard();
+    updateStatus();
+    updateCapturedPieces();
+    updateEvaluationBar();
+    updateMoveCounter();
+    updateButtonStates();
+
+    // Handle game over
+    if (result.gameOverResult && result.gameOverResult.isOver) {
+        showGameOverDialog(result.gameOverResult);
+    }
+
+    return result;
+}
+
 // Handle square click
 function handleSquareClick(row, col) {
     if (gameOver) return;
@@ -442,11 +508,11 @@ function handleSquareClick(row, col) {
         const fromCol = selectedSquare.col;
 
         if (isValidMove(fromRow, fromCol, row, col)) {
-            makeMove(fromRow, fromCol, row, col);
+            const result = executeMoveWithUI(fromRow, fromCol, row, col);
             selectedSquare = null;
-            renderBoard();
 
-            if (!gameOver) {
+            // Only trigger AI if move completed (not waiting for promotion)
+            if (!result.needsPromotion && !gameOver) {
                 if (gameMode === 'ai' && currentPlayer === 'black') {
                     setTimeout(() => { if (!gameOver) makeAIMove(); }, AI_MOVE_DELAY);
                 } else if (gameMode === 'watch' && watchMatchRunning) {
@@ -559,13 +625,17 @@ function undoMove() {
 
     if (gameMode === 'ai') {
         if (moveHistory.length < 2) {
-            if (!undoSingleMove()) return;
+            const result = undoSingleMove();
+            if (!result.success) return;
         } else {
-            if (!undoSingleMove()) return;
-            if (!undoSingleMove()) return;
+            const result1 = undoSingleMove();
+            if (!result1.success) return;
+            const result2 = undoSingleMove();
+            if (!result2.success) return;
         }
     } else {
-        if (!undoSingleMove()) return;
+        const result = undoSingleMove();
+        if (!result.success) return;
     }
 
     gameOver = false;
@@ -573,12 +643,46 @@ function undoMove() {
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('gameOver').classList.remove('show');
 
+    // Remove last move(s) from history display
+    updateMoveHistoryDisplay();
+
     renderBoard();
     updateStatus();
     updateCapturedPieces();
     updateEvaluationBar();
     updateMoveCounter();
     updateButtonStates();
+}
+
+// Update move history display to match current state
+function updateMoveHistoryDisplay() {
+    const moveHistoryEl = document.getElementById('moveHistory');
+    const mobileMoveHistoryEl = document.getElementById('mobileMoveHistory');
+
+    // Rebuild move history from scratch
+    moveHistoryEl.innerHTML = '';
+    mobileMoveHistoryEl.innerHTML = '';
+
+    moveHistory.forEach(move => {
+        const piece = move.piece;
+        const from = move.from;
+        const to = move.to;
+
+        const isWhite = piece === piece.toUpperCase();
+        const pieceSymbol = isWhite ? PIECES_HOLLOW[piece] : PIECES[piece];
+        const moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + from.col)}${8 - from.row} → ${String.fromCharCode(97 + to.col)}${8 - to.row}`;
+
+        const moveNumber = move.fullMoveNumber;
+        const moveDiv = document.createElement('div');
+        moveDiv.textContent = `${moveNumber}. ${moveNotation}`;
+        const mobileMoveDiv = moveDiv.cloneNode(true);
+
+        moveHistoryEl.appendChild(moveDiv);
+        mobileMoveHistoryEl.appendChild(mobileMoveDiv);
+    });
+
+    moveHistoryEl.scrollTop = moveHistoryEl.scrollHeight;
+    mobileMoveHistoryEl.scrollTop = mobileMoveHistoryEl.scrollHeight;
 }
 
 // ============================================================================
@@ -763,6 +867,37 @@ function toggleMobileLegalMoves() {
     showLegalMovesEnabled = document.getElementById('mobileShowLegalMoves').checked;
     document.getElementById('showLegalMoves').checked = showLegalMovesEnabled;
     renderBoard();
+}
+
+// ============================================================================
+// AI THINKING INDICATOR
+// ============================================================================
+
+function showAIThinking(currentDifficulty) {
+    const thinkingDialog = document.getElementById('aiThinking');
+    const thinkingText = document.getElementById('aiThinkingText');
+    const mobileThinkingDialog = document.getElementById('mobileAiThinking');
+    const mobileThinkingText = document.getElementById('mobileAiThinkingText');
+    const difficultyNames = ['Beginner', 'Easy', 'Medium', 'Hard'];
+    const difficultyName = difficultyNames[currentDifficulty - 1] || 'Unknown';
+    const thinkingMessage = `${difficultyName} (depth ${currentDifficulty})`;
+    thinkingText.textContent = thinkingMessage;
+    thinkingDialog.classList.add('show');
+    if (mobileThinkingText) {
+        mobileThinkingText.textContent = thinkingMessage;
+    }
+    if (mobileThinkingDialog) {
+        mobileThinkingDialog.classList.add('show');
+    }
+}
+
+function hideAIThinking() {
+    const thinkingDialog = document.getElementById('aiThinking');
+    const mobileThinkingDialog = document.getElementById('mobileAiThinking');
+    thinkingDialog.classList.remove('show');
+    if (mobileThinkingDialog) {
+        mobileThinkingDialog.classList.remove('show');
+    }
 }
 
 // ============================================================================
