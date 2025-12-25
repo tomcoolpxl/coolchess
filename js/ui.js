@@ -619,23 +619,19 @@ function newGame() {
     }
 }
 
-// Undo move(s)
+// Undo move(s) - undoes 2 moves to return to player's turn
 function undoMove() {
     if (gameMode === 'watch') return;
 
-    if (gameMode === 'ai') {
-        if (moveHistory.length < 2) {
-            const result = undoSingleMove();
-            if (!result.success) return;
-        } else {
-            const result1 = undoSingleMove();
-            if (!result1.success) return;
-            const result2 = undoSingleMove();
-            if (!result2.success) return;
-        }
-    } else {
+    // Undo 2 moves (AI + player) or just 1 if only 1 exists
+    if (moveHistory.length < 2) {
         const result = undoSingleMove();
         if (!result.success) return;
+    } else {
+        const result1 = undoSingleMove();
+        if (!result1.success) return;
+        const result2 = undoSingleMove();
+        if (!result2.success) return;
     }
 
     gameOver = false;
@@ -694,13 +690,13 @@ function setMode(mode) {
     gameMode = mode;
 
     // Update active class on mode buttons (desktop)
-    ['pvp', 'ai', 'watch'].forEach(m => {
+    ['ai', 'watch'].forEach(m => {
         const btn = document.getElementById(`modeBtn-${m}`);
         if (btn) btn.classList.toggle('active', m === mode);
     });
 
     // Update active class on mode buttons (mobile)
-    ['pvp', 'ai', 'watch'].forEach(m => {
+    ['ai', 'watch'].forEach(m => {
         const btn = document.getElementById(`mobileModeBtn-${m}`);
         if (btn) btn.classList.toggle('active', m === mode);
     });
