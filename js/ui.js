@@ -434,8 +434,10 @@ function showGameOverDialog(gameOverResult) {
     title.textContent = gameOverResult.reason;
     
     // Format nodes evaluated with thousands separator
-    const formattedNodes = nodesEvaluated.toLocaleString();
-    message.textContent = gameOverResult.message + `\n\nAI evaluated ${formattedNodes} positions`;
+    const evaluatedCount = (typeof nodesEvaluated === 'number') ? nodesEvaluated : 0;
+    const formattedNodes = evaluatedCount.toLocaleString();
+    // Use HTML line breaks so it renders on the dialog
+    message.innerHTML = `${gameOverResult.message}<br><br>AI evaluated ~${formattedNodes} positions`;
 
     overlay.classList.add('show');
     gameOverDialog.classList.add('show');
