@@ -313,7 +313,7 @@ function updateStatus() {
         // Append evaluated positions summary at end of match
         const evaluatedCount = (typeof nodesEvaluated === 'number') ? nodesEvaluated : 0;
         const formattedNodes = evaluatedCount.toLocaleString();
-        statusText += ` — AI evaluated ~${formattedNodes} positions`;
+        statusText += ` - AI evaluated ${formattedNodes} positions`;
     } else {
         if (gameMode === 'watch') {
             statusText = `${currentPlayer === 'white' ? 'White' : 'Black'} to move`;
@@ -329,7 +329,7 @@ function updateStatus() {
         // After AI move completes, show per-move evaluated count (between moves)
         if (typeof lastMoveNodesEvaluated === 'number' && lastMoveNodesEvaluated > 0) {
             const formattedLast = lastMoveNodesEvaluated.toLocaleString();
-            statusText += ` — evaluated ~${formattedLast} this move`;
+            statusText += ` - evaluated: ${formattedLast}`;
         }
     }
 
@@ -447,7 +447,7 @@ function showGameOverDialog(gameOverResult) {
     const evaluatedCount = (typeof nodesEvaluated === 'number') ? nodesEvaluated : 0;
     const formattedNodes = evaluatedCount.toLocaleString();
     // Use HTML line breaks so it renders on the dialog
-    message.innerHTML = `${gameOverResult.message}<br><br>AI evaluated ~${formattedNodes} positions`;
+    message.innerHTML = `${gameOverResult.message}<br><br>AI evaluated ${formattedNodes} positions`;
 
     overlay.classList.add('show');
     gameOverDialog.classList.add('show');
