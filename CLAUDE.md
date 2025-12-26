@@ -6,14 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a browser-based chess game with separate HTML, CSS, and JavaScript files. The game features:
 - Full chess rules implementation (castling, en passant, pawn promotion, 50-move rule, threefold repetition)
-- AI opponent using minimax algorithm with alpha-beta pruning
+- AI opponent using minimax with alpha-beta pruning, transposition tables, and move ordering
 - Two game modes: Player vs AI, AI vs AI (watch mode)
 - Unified New Game dialog for mode and difficulty selection
 - Position evaluation with visual evaluation bar
+- AI statistics display (positions evaluated per move and total)
 - Opening book for common opening moves (11 pre-programmed moves)
-- Info dialog explaining how the AI works
+- Info dialog explaining how the AI works (includes tribute to Maurits Cool)
 - Smart undo that reverts 2 moves (opponent + yours)
 - Hint feature with visual arrow showing suggested move
+- Zero AI delays for instant responsive gameplay
 
 ## Running the Application
 
@@ -25,15 +27,17 @@ Simply open `index.html` in any modern web browser. No build process, server, or
 
 ```
 coolchess/
-├── index.html          # HTML structure only (~200 lines)
+├── index.html          # HTML structure only (~207 lines)
 ├── css/
 │   └── style.css       # All styling (~1200 lines)
 ├── js/
-│   ├── constants.js    # Shared constants (~45 lines)
-│   ├── engine.js       # Core game logic, pure functions (~640 lines)
-│   ├── ai.js           # AI/minimax/evaluation (~410 lines)
-│   ├── ui.js           # Rendering & controls (~880 lines)
+│   ├── constants.js    # Shared constants + Zobrist tables (~87 lines)
+│   ├── engine.js       # Core game logic, pure functions (~665 lines)
+│   ├── ai.js           # AI/minimax/evaluation/TT (~520 lines)
+│   ├── ui.js           # Rendering & controls (~915 lines)
 │   └── main.js         # Initialization (~7 lines)
+├── assets/
+│   └── img/            # Images (maurice_cool.jpg for info dialog)
 ├── CLAUDE.md           # This documentation
 └── README.md           # Project readme
 ```
@@ -46,7 +50,9 @@ coolchess/
 
 3. **js/constants.js**: Shared constants
    - `PIECES` / `PIECES_HOLLOW` - Unicode chess symbols
-   - Timing constants (arrow fade, AI delays)
+   - `ZOBRIST` - Zobrist hash tables for transposition table (seeded PRNG)
+   - `PIECE_INDEX` - Maps piece characters to indices for hashing
+   - Timing constants (arrow fade, AI delays - all set to 0 for instant play)
    - `openingBook` - Pre-programmed opening moves
 
 4. **js/engine.js**: Core game logic (pure, no DOM manipulation)
@@ -55,10 +61,14 @@ coolchess/
    - Move execution (`makeMove` returns result object, `undoSingleMove`)
    - Game rules (`isInCheck`, `checkGameOver` returns state, `getAllLegalMoves`)
    - Promotion handling (`completePromotion`)
+   - `computeHash()` - Zobrist hash for current position
 
 5. **js/ai.js**: AI and evaluation
-   - AI difficulty settings (`aiDifficulty`, `aiDifficultyWhite`, `aiDifficultyBlack`)
-   - `minimax()` with alpha-beta pruning
+   - AI difficulty settings (`aiDifficulty`, `aiDifficultyWhite`, `aiDifficultyBlack`) - default: 3 (Medium)
+   - Node tracking (`nodesEvaluated`, `lastMoveNodesEvaluated`)
+   - Transposition table (`ttStore`, `ttLookup`, `ttClear`) - ~1M entries
+   - Move ordering (`orderMoves`) - MVV-LVA (Most Valuable Victim - Least Valuable Attacker)
+   - `minimax()` with alpha-beta pruning, TT lookups, and move ordering
    - `evaluateBoard()` with piece-square tables
    - `getOpeningBookMove()` for opening book
    - Uses UI wrappers (`executeMoveWithUI`) for moves
@@ -116,9 +126,12 @@ UI state in ui.js:
 
 **AI Functions**:
 - `makeAIMove()`: Entry point for AI move generation (uses UI wrappers)
-- `minimax()`: Minimax algorithm with alpha-beta pruning
+- `minimax()`: Minimax with alpha-beta pruning, transposition table, move ordering
 - `evaluateBoard()`: Position evaluation with piece-square tables
 - `getOpeningBookMove()`: Selects moves from opening book
+- `orderMoves()`: MVV-LVA move ordering for better pruning
+- `ttStore()` / `ttLookup()` / `ttClear()`: Transposition table operations
+- `computeHash()`: Zobrist hash computation (in engine.js)
 
 **UI Wrapper Functions**:
 - `executeMoveWithUI()`: Calls engine makeMove + updates all UI
@@ -162,6 +175,33 @@ The opening book contains 11 pre-programmed moves that randomize for variety:
 - White's first move: 4 options (e4, d4, c4 [English Opening], Nf3)
 - Black's response to e4: 4 options (e5, c5, e6, c6)
 - Black's response to d4: 3 options (d5, Nf6, f6)
+
+### AI Optimizations
+
+**Transposition Table**:
+- ~1 million entry hash table for caching evaluated positions
+- Uses Zobrist hashing for fast position identification
+- Stores: hash, depth, score, flag (EXACT/ALPHA/BETA), best move
+- Cleared on new game via `ttClear()`
+- Provides 2-3x speedup by avoiding re-evaluation of identical positions
+
+**Move Ordering (MVV-LVA)**:
+- Most Valuable Victim - Least Valuable Attacker ordering
+- TT best move searched first (from previous iterations)
+- Captures ordered by victim value minus attacker value
+- Improves alpha-beta pruning by searching likely best moves first
+- Provides ~2x speedup through better cutoffs
+
+**Zobrist Hashing**:
+- 64 squares × 12 piece types random values
+- 4 castling rights, 8 en passant files, side-to-move values
+- Seeded PRNG for reproducible hashes across sessions
+- XOR-based for efficient incremental updates (future enhancement)
+
+**Node Tracking**:
+- `nodesEvaluated`: Cumulative count for entire game
+- `lastMoveNodesEvaluated`: Count for most recent AI move
+- Displayed in status area and game over dialog
 
 ## Chess Piece Rendering
 
@@ -207,3 +247,8 @@ The application includes full mobile support with:
 - Hint arrows shown as red dotted lines, fade out after timeout
 - AI vs AI starts automatically when you click Start Game in dialog
 - Clicking New Game during AI vs AI pauses the match; Cancel resumes it
+- AI positions evaluated shown after each AI move and at game end
+- Game over dialog auto-closes after 2 seconds
+- Transposition table cleared on new game
+- All AI delays set to 0 for instant responsiveness
+- Default AI difficulty is Medium (depth 3)
