@@ -60,9 +60,9 @@ const ARROW_FADE_DELAY = 4000;        // Time before move arrow starts fading
 const ARROW_FADE_DURATION = 500;      // Duration of fade animation
 const HINT_ARROW_DISPLAY_TIME = 1500; // Time hint arrow is shown
 const GAME_OVER_DIALOG_DELAY = 2000;  // Time game over dialog is shown
-const AI_MOVE_DELAY = 500;            // Delay before AI makes a move
-const AI_WATCH_DELAY = 1000;          // Delay between AI moves in watch mode
-const AI_THINKING_MIN_DISPLAY = 300;  // Minimum display time for thinking indicator
+const AI_MOVE_DELAY = 0;            // Delay before AI makes a move
+const AI_WATCH_DELAY = 0;          // Delay between AI moves in watch mode
+const AI_THINKING_MIN_DISPLAY = 0;  // Minimum display time for thinking indicator
 
 // Opening book - common opening moves
 const openingBook = {
