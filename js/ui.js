@@ -329,7 +329,7 @@ function updateStatus() {
         // After AI move completes, show per-move evaluated count (between moves)
         if (typeof lastMoveNodesEvaluated === 'number' && lastMoveNodesEvaluated > 0) {
             const formattedLast = lastMoveNodesEvaluated.toLocaleString();
-            statusText += ` - evaluated: ${formattedLast}`;
+            statusText += ` - evaluated ${formattedLast} positions`;
         }
     }
 
