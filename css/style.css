@@ -868,9 +868,10 @@ button.mode-active {
     .mobile-new-game-btn {
         padding: 12px 16px;
         font-size: 13px;
-        margin: 0;
-        width: auto;
+        margin: 15px auto 0 auto;
+        width: 80%;
         min-height: 44px;
+        display: block;
     }
 
     #mobileAiThinking {
