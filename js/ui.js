@@ -313,7 +313,7 @@ function updateStatus() {
         // Append evaluated positions summary at end of match
         const evaluatedCount = (typeof nodesEvaluated === 'number') ? nodesEvaluated : 0;
         const formattedNodes = evaluatedCount.toLocaleString();
-        statusText += `\nAI positions evaluated: ${formattedNodes}`;
+        statusText += `<br>AI positions evaluated: ${formattedNodes}`;
     } else {
         if (gameMode === 'watch') {
             statusText = `${currentPlayer === 'white' ? 'White' : 'Black'} to move`;
@@ -329,15 +329,15 @@ function updateStatus() {
         // After AI move completes, show per-move evaluated count (between moves)
         if (typeof lastMoveNodesEvaluated === 'number' && lastMoveNodesEvaluated > 0) {
             const formattedLast = lastMoveNodesEvaluated.toLocaleString();
-            statusText += `\nAI positions evaluated: ${formattedLast}`;
+            statusText += `<br>AI positions evaluated: ${formattedLast}`;
         }
     }
 
-    status.textContent = statusText;
+    status.innerHTML = statusText;
     status.className = statusClass;
 
     if (mobileStatus) {
-        mobileStatus.textContent = statusText;
+        mobileStatus.innerHTML = statusText;
         mobileStatus.className = statusClass;
     }
 }
