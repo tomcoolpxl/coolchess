@@ -7,6 +7,7 @@ let aiDifficulty = 3;
 let aiDifficultyWhite = 3;
 let aiDifficultyBlack = 3;
 let nodesEvaluated = 0; // Track total nodes evaluated by AI
+let lastMoveNodesEvaluated = 0; // Nodes evaluated for the most recent AI move
 
 // ============================================================================
 // Transposition Table
@@ -107,6 +108,8 @@ function makeAIMove() {
     if (fullMoveNumber <= 3) {
         const bookMove = getOpeningBookMove();
         if (bookMove) {
+            // Opening book doesn't evaluate nodes
+            lastMoveNodesEvaluated = 0;
             executeMoveWithUI(bookMove.from.row, bookMove.from.col,
                     bookMove.to.row, bookMove.to.col,
                     bookMove.promotion);
@@ -132,9 +135,12 @@ function makeAIMove() {
     // Use setTimeout to let the UI update before blocking
     setTimeout(() => {
         const startTime = Date.now();
+        const startNodes = nodesEvaluated;
         // CRITICAL: White maximizes (true), Black minimizes (false)
         const isMaximizing = currentPlayer === 'white';
         const bestMove = minimax(currentDifficulty, currentPlayer, -Infinity, Infinity, isMaximizing);
+        // Record nodes evaluated for this AI move
+        lastMoveNodesEvaluated = Math.max(0, nodesEvaluated - startNodes);
 
         // Ensure minimum display time for thinking indicator
         const elapsed = Date.now() - startTime;

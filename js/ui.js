@@ -310,6 +310,10 @@ function updateStatus() {
 
     if (gameOver) {
         statusText = gameOverReason || 'Game Over';
+        // Append evaluated positions summary at end of match
+        const evaluatedCount = (typeof nodesEvaluated === 'number') ? nodesEvaluated : 0;
+        const formattedNodes = evaluatedCount.toLocaleString();
+        statusText += ` — AI evaluated ~${formattedNodes} positions`;
     } else {
         if (gameMode === 'watch') {
             statusText = `${currentPlayer === 'white' ? 'White' : 'Black'} to move`;
@@ -320,6 +324,12 @@ function updateStatus() {
 
         if (isInCheck(currentPlayer)) {
             statusText += ' - Check!';
+        }
+
+        // After AI move completes, show per-move evaluated count (between moves)
+        if (typeof lastMoveNodesEvaluated === 'number' && lastMoveNodesEvaluated > 0) {
+            const formattedLast = lastMoveNodesEvaluated.toLocaleString();
+            statusText += ` — evaluated ~${formattedLast} this move`;
         }
     }
 
@@ -802,6 +812,8 @@ function showAIThinking(currentDifficulty) {
     if (mobileThinkingDialog) {
         mobileThinkingDialog.classList.add('show');
     }
+
+    // Thinking indicator only; status updates will occur after computation
 }
 
 function hideAIThinking() {
@@ -811,6 +823,9 @@ function hideAIThinking() {
     if (mobileThinkingDialog) {
         mobileThinkingDialog.classList.remove('show');
     }
+
+    // Update status once after computation finishes
+    updateStatus();
 }
 
 // ============================================================================
