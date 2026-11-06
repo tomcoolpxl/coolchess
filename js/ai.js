@@ -31,9 +31,15 @@ const DIFFICULTY_MAX_TIME_MS = {
     7: 2500
 };
 
-// Search time control state
+// Search time control & root contempt state
 let searchDeadline = Infinity;
 let searchAborted = false;
+let searchRootPlayer = 'white';
+const DRAW_CONTEMPT = 75; // Centipawn penalty against repeating positions unless down material
+const MAX_PLY = 32;
+
+// Track hashes along the active search path to detect in-tree 2-fold repetitions
+const searchPathHashes = new Int32Array(MAX_PLY + 8);
 
 // ============================================================================
 // Transposition Table (Power-of-2 size with 64-bit Zobrist verification)
@@ -103,7 +109,6 @@ const MVV_LVA_VALUES = {
     'k': 100, 'K': 100
 };
 
-const MAX_PLY = 32;
 const killerMoves = Array.from({ length: MAX_PLY }, () => [null, null]);
 const historyTable = Array.from({ length: 12 }, () => new Int32Array(64));
 
@@ -184,8 +189,20 @@ function scoreMoveForOrdering(move, ttBestMove, ply) {
     if (attacker) {
         const pIdx = PIECE_INDEX[attacker];
         const toSq = (move.to.row << 3) | move.to.col;
+        let histScore = historyTable[pIdx][toSq];
+
+        // At root, discourage immediate back-and-forth reversal of this side's previous move
+        if (ply === 0 && moveHistory.length >= 2) {
+            const prevOwnMove = moveHistory[moveHistory.length - 2];
+            if (prevOwnMove &&
+                move.from.row === prevOwnMove.to.row && move.from.col === prevOwnMove.to.col &&
+                move.to.row === prevOwnMove.from.row && move.to.col === prevOwnMove.from.col) {
+                histScore -= 15000;
+            }
+        }
+
         const jitter = ply === 0 ? Math.random() * 0.9 : 0;
-        return historyTable[pIdx][toSq] + jitter;
+        return histScore + jitter;
     }
 
     return 0;
@@ -216,14 +233,14 @@ const PIECE_VALUES = {
 };
 
 const PAWN_TABLE = [
-    [0,  0,  0,  0,  0,  0,  0,  0],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [10, 10, 20, 30, 30, 20, 10, 10],
-    [5,  5, 10, 25, 25, 10,  5,  5],
-    [0,  0,  0, 20, 20,  0,  0,  0],
-    [5, -5,-10,  0,  0,-10, -5,  5],
-    [5, 10, 10,-20,-20, 10, 10,  5],
-    [0,  0,  0,  0,  0,  0,  0,  0]
+    [0,   0,   0,   0,   0,   0,   0,   0],
+    [65,  70,  70,  75,  75,  70,  70,  65],
+    [25,  25,  35,  45,  45,  35,  25,  25],
+    [10,  12,  20,  32,  32,  20,  12,  10],
+    [5,    5,  10,  24,  24,  10,   5,   5],
+    [5,    0,   5,  10,  10,   5,   0,   5],
+    [0,    5,   5, -15, -15,   5,   5,   0],
+    [0,    0,   0,   0,   0,   0,   0,   0]
 ];
 
 const KNIGHT_TABLE = [
@@ -344,7 +361,35 @@ function countPiecePseudoMobility(piece, row, col) {
     return count;
 }
 
-// Evaluate board position (zero-allocation, tapered king PST, bishop pair, fast mobility)
+// Passed pawn bonus by relative rank (0 = promotion rank, 7 = back rank)
+const PASSED_PAWN_BONUS = [0, 90, 55, 32, 18, 8, 0, 0];
+
+function isPassedPawn(row, col, isWhite) {
+    const enemyPawn = isWhite ? 'p' : 'P';
+    const cMin = col > 0 ? col - 1 : 0;
+    const cMax = col < 7 ? col + 1 : 7;
+    if (isWhite) {
+        for (let r = row - 1; r >= 1; r--) {
+            const bRow = board[r];
+            for (let c = cMin; c <= cMax; c++) {
+                if (bRow[c] === enemyPawn) return false;
+            }
+        }
+    } else {
+        for (let r = row + 1; r <= 6; r++) {
+            const bRow = board[r];
+            for (let c = cMin; c <= cMax; c++) {
+                if (bRow[c] === enemyPawn) return false;
+            }
+        }
+    }
+    return true;
+}
+
+// Center distance table (0..6) for Endgame Mop-Up evaluation (pushes losing King to corners/edges)
+const CENTER_DIST = [3, 2, 1, 0, 0, 1, 2, 3];
+
+// Evaluate board position (zero-allocation, tapered king PST, passed pawns, bishop pair, mobility, endgame mop-up)
 function evaluateBoard() {
     let score = 0;
     let phase = 0; // Max 24 (4 knights * 1 + 4 bishops * 1 + 4 rooks * 2 + 2 queens * 4)
@@ -369,6 +414,9 @@ function evaluateBoard() {
             switch (type) {
                 case 'p':
                     posVal = PAWN_TABLE[r][col];
+                    if (isPassedPawn(row, col, isWhite)) {
+                        posVal += PASSED_PAWN_BONUS[r];
+                    }
                     break;
                 case 'n':
                     posVal = KNIGHT_TABLE[r][col];
@@ -436,6 +484,21 @@ function evaluateBoard() {
 
     // Fast mobility bonus
     score += mobilityDiff * 4;
+
+    // Endgame Mop-Up evaluation: when ahead in endgame, drive losing King to edge/corner and close distance
+    if (egWeight >= 10 && Math.abs(score) >= 180) {
+        const kingsDist = Math.abs(whiteKingRow - blackKingRow) + Math.abs(whiteKingCol - blackKingCol);
+        const closenessBonus = (14 - kingsDist) * 7;
+        if (score > 0) {
+            const losingCenterDist = CENTER_DIST[blackKingRow] + CENTER_DIST[blackKingCol];
+            const mopUp = Math.round(((losingCenterDist * 16 + closenessBonus) * egWeight) / 24);
+            score += mopUp;
+        } else {
+            const losingCenterDist = CENTER_DIST[whiteKingRow] + CENTER_DIST[whiteKingCol];
+            const mopUp = Math.round(((losingCenterDist * 16 + closenessBonus) * egWeight) / 24);
+            score -= mopUp;
+        }
+    }
 
     // King safety - penalize if king is in check
     if (isSquareAttacked(whiteKingRow, whiteKingCol, 'black')) score -= 40;
@@ -609,25 +672,41 @@ function quiescence(alpha, beta, player, isMaximizing, qDepth = MAX_QUIESCENCE_D
 // ============================================================================
 // Minimax with PVS, Null-Move Pruning, LMR, Reverse Futility Pruning & 64-bit TT
 // ============================================================================
+function getContemptDrawScore() {
+    // Penalize draws for the root player so neither AI willingly bails into a repetition
+    return searchRootPlayer === 'white' ? -DRAW_CONTEMPT : DRAW_CONTEMPT;
+}
+
 function minimax(depth, player, alpha, beta, isMaximizing, ply = 0, allowNull = true) {
     if ((nodesEvaluated & 511) === 0 && Date.now() >= searchDeadline) {
         searchAborted = true;
         return { score: 0, move: null };
     }
 
-    // 1. Check for draw by 50-move rule or repetition (only possible when halfMoveClock >= 4)
+    const hash = computeHash();
+    if (ply >= 0 && ply < searchPathHashes.length) {
+        searchPathHashes[ply] = hash.lo;
+    }
+
+    // 1. Check for draw by 50-move rule or ANY repetition (2-fold in game history OR in current search path)
     if (ply > 0) {
         if (halfMoveClock >= 100) {
-            return { score: 0, move: null };
+            return { score: getContemptDrawScore(), move: null };
         }
-        if (halfMoveClock >= 4 && positionHistory.length >= 4) {
-            const posKey = getPositionKey();
-            let repCount = 0;
-            for (let i = positionHistory.length - 1; i >= 0; i--) {
-                if (positionHistory[i] === posKey) {
-                    repCount++;
-                    if (repCount >= 2) {
-                        return { score: 0, move: null };
+        if (halfMoveClock >= 2) {
+            // 1a. Check against current search path (prevent cycling within search tree)
+            for (let p = ply - 2; p >= 0; p -= 2) {
+                if (searchPathHashes[p] === hash.lo) {
+                    return { score: getContemptDrawScore(), move: null };
+                }
+            }
+            // 1b. Check against actual game positionHistory (if position already appeared even once, repeating it leads to draw!)
+            if (positionHistory.length >= 2) {
+                const posKey = getPositionKey();
+                const maxCheck = Math.min(positionHistory.length, halfMoveClock + 2);
+                for (let i = positionHistory.length - 1; i >= positionHistory.length - maxCheck; i--) {
+                    if (positionHistory[i] === posKey) {
+                        return { score: getContemptDrawScore(), move: null };
                     }
                 }
             }
@@ -639,7 +718,6 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0, allowNull = 
     const originalBeta = beta;
     const isPV = (beta - alpha) > 1;
 
-    const hash = computeHash();
     nodesEvaluated++;
 
     // 3. Transposition table lookup (at root ply === 0, verify bestMove legality)
@@ -859,6 +937,7 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0, allowNull = 
 // ============================================================================
 function searchBestMoveWithIterativeDeepening(targetDepth, player) {
     const isMaximizing = player === 'white';
+    searchRootPlayer = player;
     const maxTime = DIFFICULTY_MAX_TIME_MS[targetDepth] || 1500;
     const startTime = Date.now();
 
