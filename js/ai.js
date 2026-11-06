@@ -35,7 +35,7 @@ const DIFFICULTY_MAX_TIME_MS = {
 let searchDeadline = Infinity;
 let searchAborted = false;
 let searchRootPlayer = 'white';
-const DRAW_CONTEMPT = 75; // Centipawn penalty against repeating positions unless down material
+const DRAW_CONTEMPT = 250; // Centipawn penalty against repeating positions so neither AI bails into draws
 const MAX_PLY = 32;
 
 // Track hashes along the active search path to detect in-tree 2-fold repetitions
@@ -55,6 +55,7 @@ const TT_BETA = 2;  // Lower bound (score >= originalBeta)
 
 function ttStore(hash, depth, score, flag, bestMove) {
     if (searchAborted) return; // Never store incomplete aborted search results
+    if (Math.abs(score) === DRAW_CONTEMPT) return; // Never cache path-dependent repetition contempt scores in TT
     const index = hash.lo & TT_MASK;
     const existing = transpositionTable[index];
     if (!existing || existing.depth <= depth || existing.hashLo !== hash.lo || existing.hashHi !== hash.hi) {
@@ -720,15 +721,13 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0, allowNull = 
 
     nodesEvaluated++;
 
-    // 3. Transposition table lookup (at root ply === 0, verify bestMove legality)
+    // 3. Transposition table lookup
+    // Never take a TT cutoff at root (ply === 0), nor at ply === 1 when reversible moves exist (halfMoveClock >= 2),
+    // so 1-ply and 2-ply repetitions are always checked against positionHistory!
     const ttHit = ttLookup(hash, depth, alpha, beta);
-    if (ttHit && ttHit.cutoff) {
-        if (ply > 0 || (ttHit.bestMove && isValidMove(
-            ttHit.bestMove.from.row, ttHit.bestMove.from.col,
-            ttHit.bestMove.to.row, ttHit.bestMove.to.col, player
-        ))) {
-            return { score: ttHit.score, move: ttHit.bestMove };
-        }
+    const allowTTCutoff = ply > 1 || (ply === 1 && halfMoveClock < 2);
+    if (ttHit && ttHit.cutoff && allowTTCutoff) {
+        return { score: ttHit.score, move: ttHit.bestMove };
     }
 
     // 4. Frontier node (depth <= 0): run Quiescence Search to resolve pending captures
