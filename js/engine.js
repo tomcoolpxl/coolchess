@@ -199,14 +199,26 @@ function isInCheck(player) {
     return isSquareAttacked(kingPos.row, kingPos.col, opponent);
 }
 
-// Find king position
+// Find king position (scans from home rank first: row 7->0 for white, row 0->7 for black)
 function findKing(player) {
-    const kingPiece = player === 'white' ? 'K' : 'k';
-    for (let row = 0; row < 8; row++) {
-        const boardRow = board[row];
-        for (let col = 0; col < 8; col++) {
-            if (boardRow[col] === kingPiece) {
-                return { row, col };
+    const isWhite = player === 'white';
+    const kingPiece = isWhite ? 'K' : 'k';
+    if (isWhite) {
+        for (let row = 7; row >= 0; row--) {
+            const boardRow = board[row];
+            for (let col = 0; col < 8; col++) {
+                if (boardRow[col] === kingPiece) {
+                    return { row, col };
+                }
+            }
+        }
+    } else {
+        for (let row = 0; row < 8; row++) {
+            const boardRow = board[row];
+            for (let col = 0; col < 8; col++) {
+                if (boardRow[col] === kingPiece) {
+                    return { row, col };
+                }
             }
         }
     }
@@ -351,7 +363,7 @@ function isPieceMovementValid(piece, fromRow, fromCol, toRow, toCol, player = cu
 }
 
 // Check if move is valid (fast in-place simulation including en passant & castling)
-function isValidMove(fromRow, fromCol, toRow, toCol, player = currentPlayer) {
+function isValidMove(fromRow, fromCol, toRow, toCol, player = currentPlayer, knownKingPos = null) {
     if (!isOnBoard(fromRow, fromCol) || !isOnBoard(toRow, toCol)) return false;
     if (fromRow === toRow && fromCol === toCol) return false;
 
@@ -389,7 +401,15 @@ function isValidMove(fromRow, fromCol, toRow, toCol, player = currentPlayer) {
         board[epPawnRow][toCol] = '';
     }
 
-    const inCheck = isInCheck(player);
+    let inCheck;
+    const opponent = player === 'white' ? 'black' : 'white';
+    if (pieceType === 'k') {
+        inCheck = isSquareAttacked(toRow, toCol, opponent);
+    } else if (knownKingPos) {
+        inCheck = isSquareAttacked(knownKingPos.row, knownKingPos.col, opponent);
+    } else {
+        inCheck = isInCheck(player);
+    }
 
     // Restore board in-place
     board[fromRow][fromCol] = piece;
@@ -402,11 +422,12 @@ function isValidMove(fromRow, fromCol, toRow, toCol, player = currentPlayer) {
 }
 
 // Get all legal moves for a single piece at (row, col) using candidate generation
-function getLegalMovesForPiece(row, col, player = currentPlayer) {
+function getLegalMovesForPiece(row, col, player = currentPlayer, knownKingPos = null) {
     const moves = [];
     const piece = board[row][col];
     if (!piece || !isOwnPiece(piece, player)) return moves;
 
+    const kingPos = knownKingPos || findKing(player);
     const pieceType = piece.toLowerCase();
 
     if (pieceType === 'p') {
@@ -415,18 +436,18 @@ function getLegalMovesForPiece(row, col, player = currentPlayer) {
         const oneStep = row + direction;
 
         if (isOnBoard(oneStep, col)) {
-            if (isValidMove(row, col, oneStep, col, player)) {
+            if (isValidMove(row, col, oneStep, col, player, kingPos)) {
                 moves.push({ row: oneStep, col });
             }
             const twoStep = row + 2 * direction;
-            if (row === startRow && isOnBoard(twoStep, col) && isValidMove(row, col, twoStep, col, player)) {
+            if (row === startRow && isOnBoard(twoStep, col) && isValidMove(row, col, twoStep, col, player, kingPos)) {
                 moves.push({ row: twoStep, col });
             }
             // Captures (including en passant)
-            if (col > 0 && isValidMove(row, col, oneStep, col - 1, player)) {
+            if (col > 0 && isValidMove(row, col, oneStep, col - 1, player, kingPos)) {
                 moves.push({ row: oneStep, col: col - 1 });
             }
-            if (col < 7 && isValidMove(row, col, oneStep, col + 1, player)) {
+            if (col < 7 && isValidMove(row, col, oneStep, col + 1, player, kingPos)) {
                 moves.push({ row: oneStep, col: col + 1 });
             }
         }
@@ -434,7 +455,7 @@ function getLegalMovesForPiece(row, col, player = currentPlayer) {
         for (let i = 0; i < KNIGHT_OFFSETS.length; i++) {
             const r = row + KNIGHT_OFFSETS[i][0];
             const c = col + KNIGHT_OFFSETS[i][1];
-            if (isOnBoard(r, c) && isValidMove(row, col, r, c, player)) {
+            if (isOnBoard(r, c) && isValidMove(row, col, r, c, player, kingPos)) {
                 moves.push({ row: r, col: c });
             }
         }
@@ -442,14 +463,14 @@ function getLegalMovesForPiece(row, col, player = currentPlayer) {
         for (let i = 0; i < KING_OFFSETS.length; i++) {
             const r = row + KING_OFFSETS[i][0];
             const c = col + KING_OFFSETS[i][1];
-            if (isOnBoard(r, c) && isValidMove(row, col, r, c, player)) {
+            if (isOnBoard(r, c) && isValidMove(row, col, r, c, player, kingPos)) {
                 moves.push({ row: r, col: c });
             }
         }
         // Castling candidates
         if (col === 4 && (row === 7 || row === 0)) {
-            if (isValidMove(row, 4, row, 6, player)) moves.push({ row, col: 6 });
-            if (isValidMove(row, 4, row, 2, player)) moves.push({ row, col: 2 });
+            if (isValidMove(row, 4, row, 6, player, kingPos)) moves.push({ row, col: 6 });
+            if (isValidMove(row, 4, row, 2, player, kingPos)) moves.push({ row, col: 2 });
         }
     } else {
         const dirs = pieceType === 'r' ? ROOK_DIRS : (pieceType === 'b' ? BISHOP_DIRS : QUEEN_DIRS);
@@ -461,12 +482,12 @@ function getLegalMovesForPiece(row, col, player = currentPlayer) {
             while (isOnBoard(r, c)) {
                 const target = board[r][c];
                 if (target) {
-                    if (!isOwnPiece(target, player) && isValidMove(row, col, r, c, player)) {
+                    if (!isOwnPiece(target, player) && isValidMove(row, col, r, c, player, kingPos)) {
                         moves.push({ row: r, col: c });
                     }
                     break; // Blocked by piece
                 }
-                if (isValidMove(row, col, r, c, player)) {
+                if (isValidMove(row, col, r, c, player, kingPos)) {
                     moves.push({ row: r, col: c });
                 }
                 r += dr;
@@ -478,15 +499,16 @@ function getLegalMovesForPiece(row, col, player = currentPlayer) {
     return moves;
 }
 
-// Get all legal moves for `player`
+// Get all legal moves for `player` (finds king once and reuses across all pieces)
 function getAllLegalMoves(player = currentPlayer) {
     const moves = [];
+    const kingPos = findKing(player);
     for (let fromRow = 0; fromRow < 8; fromRow++) {
         const boardRow = board[fromRow];
         for (let fromCol = 0; fromCol < 8; fromCol++) {
             const piece = boardRow[fromCol];
             if (piece && isOwnPiece(piece, player)) {
-                const pieceMoves = getLegalMovesForPiece(fromRow, fromCol, player);
+                const pieceMoves = getLegalMovesForPiece(fromRow, fromCol, player, kingPos);
                 for (let i = 0; i < pieceMoves.length; i++) {
                     moves.push({
                         from: { row: fromRow, col: fromCol },

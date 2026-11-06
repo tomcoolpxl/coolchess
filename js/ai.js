@@ -1,13 +1,39 @@
 // ============================================================================
-// AI - Minimax with Alpha-Beta, Quiescence, 64-bit TT, Killers & Tapered Eval
+// AI - Iterative Deepening, PVS, Null-Move Pruning, LMR, RFP, 64-bit TT & QS
 // ============================================================================
 
-// AI difficulty settings (global)
+// AI difficulty settings (global, 1..7)
 let aiDifficulty = 3;
 let aiDifficultyWhite = 3;
 let aiDifficultyBlack = 3;
 let nodesEvaluated = 0;         // Track total nodes evaluated by AI in current game
 let lastMoveNodesEvaluated = 0; // Nodes evaluated for the most recent AI move
+
+// Difficulty Names and Per-Move Maximum Time Budgets (in milliseconds)
+const DIFFICULTY_NAMES = [
+    'Beginner',     // 1 (Depth 1)
+    'Easy',         // 2 (Depth 2)
+    'Medium',       // 3 (Depth 3)
+    'Hard',         // 4 (Depth 4)
+    'Expert',       // 5 (Depth 5)
+    'Master',       // 6 (Depth 6)
+    'Grandmaster'   // 7 (Depth 7)
+];
+
+// Hard time limits per move so deeper levels can think 2x-4x longer without ever freezing
+const DIFFICULTY_MAX_TIME_MS = {
+    1: 100,
+    2: 200,
+    3: 350,
+    4: 600,
+    5: 1000,
+    6: 1600,
+    7: 2500
+};
+
+// Search time control state
+let searchDeadline = Infinity;
+let searchAborted = false;
 
 // ============================================================================
 // Transposition Table (Power-of-2 size with 64-bit Zobrist verification)
@@ -22,9 +48,9 @@ const TT_ALPHA = 1; // Upper bound (score <= originalAlpha)
 const TT_BETA = 2;  // Lower bound (score >= originalBeta)
 
 function ttStore(hash, depth, score, flag, bestMove) {
+    if (searchAborted) return; // Never store incomplete aborted search results
     const index = hash.lo & TT_MASK;
     const existing = transpositionTable[index];
-    // Replace if empty, from a different position, or searched to >= depth
     if (!existing || existing.depth <= depth || existing.hashLo !== hash.lo || existing.hashHi !== hash.hi) {
         transpositionTable[index] = {
             hashLo: hash.lo,
@@ -106,7 +132,7 @@ function recordHistoryMove(piece, move, depth) {
     const pIdx = PIECE_INDEX[piece];
     if (pIdx === undefined) return;
     const toSq = (move.to.row << 3) | move.to.col;
-    historyTable[pIdx][toSq] = Math.min(20000, historyTable[pIdx][toSq] + depth * depth);
+    historyTable[pIdx][toSq] = Math.min(30000, historyTable[pIdx][toSq] + depth * depth);
 }
 
 function scoreMoveForOrdering(move, ttBestMove, ply) {
@@ -266,6 +292,21 @@ const KING_END_GAME_TABLE = [
     [-50,-30,-30,-30,-30,-30,-30,-50]
 ];
 
+// Check if `player` has any non-pawn, non-king material (to guard against Zugzwang in Null Move Pruning)
+function hasNonPawnMaterial(player) {
+    const isWhite = player === 'white';
+    for (let r = 0; r < 8; r++) {
+        const boardRow = board[r];
+        for (let c = 0; c < 8; c++) {
+            const p = boardRow[c];
+            if (!p || (p === p.toUpperCase()) !== isWhite) continue;
+            const t = p.toLowerCase();
+            if (t === 'n' || t === 'b' || t === 'r' || t === 'q') return true;
+        }
+    }
+    return false;
+}
+
 // Fast pseudo-legal mobility count for a single piece (zero allocation)
 function countPiecePseudoMobility(piece, row, col) {
     const isWhite = piece === piece.toUpperCase();
@@ -404,7 +445,7 @@ function evaluateBoard() {
 }
 
 // ============================================================================
-// Quiescence Search (Capture-only extension to prevent Horizon Effect blunders)
+// Quiescence Search with Delta Pruning (resolves tactical exchanges at leaves)
 // ============================================================================
 const MAX_QUIESCENCE_DEPTH = 3;
 
@@ -412,6 +453,7 @@ function getCaptureAndPromotionMoves(player) {
     const tactical = [];
     const isWhite = player === 'white';
     const ep = enPassantTarget;
+    const kingPos = findKing(player);
 
     for (let fromRow = 0; fromRow < 8; fromRow++) {
         const boardRow = board[fromRow];
@@ -428,7 +470,7 @@ function getCaptureAndPromotionMoves(player) {
 
                 // Forward promotion (quiet push to promotion rank)
                 if ((toRow === 0 || toRow === 7) && !board[toRow][fromCol]) {
-                    if (isValidMove(fromRow, fromCol, toRow, fromCol, player)) {
+                    if (isValidMove(fromRow, fromCol, toRow, fromCol, player, kingPos)) {
                         tactical.push({ from: { row: fromRow, col: fromCol }, to: { row: toRow, col: fromCol } });
                     }
                 }
@@ -439,7 +481,7 @@ function getCaptureAndPromotionMoves(player) {
                     const target = board[toRow][toCol];
                     const isEp = !target && ep && toRow === ep.row && toCol === ep.col;
                     if ((target && (target === target.toUpperCase()) !== isWhite) || isEp) {
-                        if (isValidMove(fromRow, fromCol, toRow, toCol, player)) {
+                        if (isValidMove(fromRow, fromCol, toRow, toCol, player, kingPos)) {
                             tactical.push({ from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } });
                         }
                     }
@@ -451,7 +493,7 @@ function getCaptureAndPromotionMoves(player) {
                     if (r >= 0 && r < 8 && c >= 0 && c < 8) {
                         const target = board[r][c];
                         if (target && (target === target.toUpperCase()) !== isWhite) {
-                            if (isValidMove(fromRow, fromCol, r, c, player)) {
+                            if (isValidMove(fromRow, fromCol, r, c, player, kingPos)) {
                                 tactical.push({ from: { row: fromRow, col: fromCol }, to: { row: r, col: c } });
                             }
                         }
@@ -464,7 +506,7 @@ function getCaptureAndPromotionMoves(player) {
                     if (r >= 0 && r < 8 && c >= 0 && c < 8) {
                         const target = board[r][c];
                         if (target && (target === target.toUpperCase()) !== isWhite) {
-                            if (isValidMove(fromRow, fromCol, r, c, player)) {
+                            if (isValidMove(fromRow, fromCol, r, c, player, kingPos)) {
                                 tactical.push({ from: { row: fromRow, col: fromCol }, to: { row: r, col: c } });
                             }
                         }
@@ -481,7 +523,7 @@ function getCaptureAndPromotionMoves(player) {
                         const target = board[r][c];
                         if (target) {
                             if ((target === target.toUpperCase()) !== isWhite) {
-                                if (isValidMove(fromRow, fromCol, r, c, player)) {
+                                if (isValidMove(fromRow, fromCol, r, c, player, kingPos)) {
                                     tactical.push({ from: { row: fromRow, col: fromCol }, to: { row: r, col: c } });
                                 }
                             }
@@ -500,6 +542,11 @@ function getCaptureAndPromotionMoves(player) {
 
 function quiescence(alpha, beta, player, isMaximizing, qDepth = MAX_QUIESCENCE_DEPTH) {
     nodesEvaluated++;
+    if ((nodesEvaluated & 511) === 0 && Date.now() >= searchDeadline) {
+        searchAborted = true;
+        return 0;
+    }
+
     const standPat = evaluateBoard();
 
     if (qDepth <= 0) {
@@ -514,10 +561,19 @@ function quiescence(alpha, beta, player, isMaximizing, qDepth = MAX_QUIESCENCE_D
         const nextPlayer = player === 'white' ? 'black' : 'white';
 
         for (let i = 0; i < captures.length; i++) {
-            const state = makeFastMove(captures[i], player);
+            const cap = captures[i];
+            const victim = board[cap.to.row][cap.to.col];
+            const isPromo = cap.to.row === 0 || cap.to.row === 7;
+            // Delta pruning: skip captures that cannot possibly raise score to alpha
+            if (victim && !isPromo && standPat + PIECE_VALUES[victim] + 200 < alpha) {
+                continue;
+            }
+
+            const state = makeFastMove(cap, player);
             const score = quiescence(alpha, beta, nextPlayer, false, qDepth - 1);
             unmakeFastMove(state);
 
+            if (searchAborted) return 0;
             if (score >= beta) return beta;
             if (score > alpha) alpha = score;
         }
@@ -530,10 +586,19 @@ function quiescence(alpha, beta, player, isMaximizing, qDepth = MAX_QUIESCENCE_D
         const nextPlayer = player === 'white' ? 'black' : 'white';
 
         for (let i = 0; i < captures.length; i++) {
-            const state = makeFastMove(captures[i], player);
+            const cap = captures[i];
+            const victim = board[cap.to.row][cap.to.col];
+            const isPromo = cap.to.row === 0 || cap.to.row === 7;
+            // Delta pruning: skip captures that cannot possibly lower score to beta
+            if (victim && !isPromo && standPat - PIECE_VALUES[victim] - 200 > beta) {
+                continue;
+            }
+
+            const state = makeFastMove(cap, player);
             const score = quiescence(alpha, beta, nextPlayer, true, qDepth - 1);
             unmakeFastMove(state);
 
+            if (searchAborted) return 0;
             if (score <= alpha) return alpha;
             if (score < beta) beta = score;
         }
@@ -542,10 +607,15 @@ function quiescence(alpha, beta, player, isMaximizing, qDepth = MAX_QUIESCENCE_D
 }
 
 // ============================================================================
-// Minimax with Alpha-Beta Pruning, 64-bit TT, Draw Detection & Move Ordering
+// Minimax with PVS, Null-Move Pruning, LMR, Reverse Futility Pruning & 64-bit TT
 // ============================================================================
-function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
-    // 1. Check for draw by 50-move rule or repetition (only possible when halfMoveClock >= 4!)
+function minimax(depth, player, alpha, beta, isMaximizing, ply = 0, allowNull = true) {
+    if ((nodesEvaluated & 511) === 0 && Date.now() >= searchDeadline) {
+        searchAborted = true;
+        return { score: 0, move: null };
+    }
+
+    // 1. Check for draw by 50-move rule or repetition (only possible when halfMoveClock >= 4)
     if (ply > 0) {
         if (halfMoveClock >= 100) {
             return { score: 0, move: null };
@@ -567,6 +637,7 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
     // 2. Save BOTH originalAlpha and originalBeta for accurate TT bound classification
     const originalAlpha = alpha;
     const originalBeta = beta;
+    const isPV = (beta - alpha) > 1;
 
     const hash = computeHash();
     nodesEvaluated++;
@@ -582,30 +653,73 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
         }
     }
 
-    // 4. Frontier node (depth === 0): run Quiescence Search to resolve pending captures
-    if (depth === 0) {
+    // 4. Frontier node (depth <= 0): run Quiescence Search to resolve pending captures
+    if (depth <= 0) {
         const qDepth = ply <= 1 ? 2 : MAX_QUIESCENCE_DEPTH;
         return { score: quiescence(alpha, beta, player, isMaximizing, qDepth), move: null };
     }
 
+    const inCheck = isInCheck(player);
+    const nextPlayer = player === 'white' ? 'black' : 'white';
+
+    // 5. Reverse Futility Pruning (Static Null Move Pruning) & Null Move Pruning at non-PV nodes
+    if (ply > 0 && !isPV && !inCheck && Math.abs(alpha) < 90000 && Math.abs(beta) < 90000) {
+        // 5a. Reverse Futility Pruning (depth <= 3)
+        if (depth <= 3) {
+            const staticEval = evaluateBoard();
+            const margin = 120 * depth;
+            if (isMaximizing && staticEval - margin >= beta) {
+                return { score: staticEval, move: null };
+            }
+            if (!isMaximizing && staticEval + margin <= alpha) {
+                return { score: staticEval, move: null };
+            }
+        }
+
+        // 5b. Null Move Pruning (depth >= 3, not in pawn-only endgame)
+        if (allowNull && depth >= 3 && hasNonPawnMaterial(player)) {
+            const R = depth >= 5 ? 3 : 2;
+            const savedPlayer = currentPlayer;
+            const savedEp = enPassantTarget;
+            currentPlayer = nextPlayer;
+            enPassantTarget = null;
+
+            let nullRes;
+            if (isMaximizing) {
+                nullRes = minimax(depth - 1 - R, nextPlayer, beta - 1, beta, false, ply + 1, false);
+            } else {
+                nullRes = minimax(depth - 1 - R, nextPlayer, alpha, alpha + 1, true, ply + 1, false);
+            }
+
+            currentPlayer = savedPlayer;
+            enPassantTarget = savedEp;
+
+            if (searchAborted) return { score: 0, move: null };
+            if (isMaximizing && nullRes.score >= beta) {
+                return { score: beta, move: null };
+            }
+            if (!isMaximizing && nullRes.score <= alpha) {
+                return { score: alpha, move: null };
+            }
+        }
+    }
+
     let moves = getAllLegalMoves(player);
 
-    // 5. Terminal node: Checkmate or Stalemate
-    // Add depth * 100 to mate score so faster mates are strictly preferred!
+    // 6. Terminal node: Checkmate or Stalemate
     if (moves.length === 0) {
-        if (isInCheck(player)) {
+        if (inCheck) {
             const mateScore = 100000 + depth * 100;
             return { score: isMaximizing ? -mateScore : mateScore, move: null };
         }
         return { score: 0, move: null }; // Stalemate
     }
 
-    // 6. Order moves (TT best move -> Promotions -> MVV-LVA Captures -> Killers -> History)
+    // 7. Order moves (TT best move -> Promotions -> MVV-LVA Captures -> Killers -> History)
     const ttBestMove = ttHit ? ttHit.bestMove : null;
     moves = orderMoves(moves, ttBestMove, ply);
 
     let bestMove = moves[0];
-    const nextPlayer = player === 'white' ? 'black' : 'white';
 
     if (isMaximizing) {
         let maxScore = -Infinity;
@@ -614,18 +728,45 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
             const move = moves[i];
             const isCapture = Boolean(board[move.to.row][move.to.col]);
             const movingPiece = board[move.from.row][move.from.col];
+            const isPromo = (movingPiece === 'P' || movingPiece === 'p') && (move.to.row === 0 || move.to.row === 7);
 
             const state = makeFastMove(move, player);
-            const result = minimax(depth - 1, nextPlayer, alpha, beta, false, ply + 1);
+            let score;
+
+            // Principal Variation Search (PVS) + Late Move Reductions (LMR)
+            if (i === 0) {
+                score = minimax(depth - 1, nextPlayer, alpha, beta, false, ply + 1, true).score;
+            } else {
+                let needsFullNullWindow = true;
+                // Late Move Reductions (LMR) for quiet late moves
+                if (depth >= 3 && i >= 3 && !isCapture && !isPromo && !inCheck) {
+                    const reduction = (depth >= 5 && i >= 8) ? 2 : 1;
+                    const reducedDepth = Math.max(1, depth - 1 - reduction);
+                    score = minimax(reducedDepth, nextPlayer, alpha, alpha + 1, false, ply + 1, true).score;
+                    needsFullNullWindow = (score > alpha);
+                }
+
+                if (needsFullNullWindow && !searchAborted) {
+                    // PVS zero-window search
+                    score = minimax(depth - 1, nextPlayer, alpha, alpha + 1, false, ply + 1, true).score;
+                    if (!searchAborted && score > alpha && score < beta) {
+                        // Full-window re-search
+                        score = minimax(depth - 1, nextPlayer, alpha, beta, false, ply + 1, true).score;
+                    }
+                }
+            }
+
             unmakeFastMove(state);
 
-            if (result.score > maxScore) {
-                maxScore = result.score;
+            if (searchAborted) return { score: maxScore === -Infinity ? 0 : maxScore, move: bestMove };
+
+            if (score > maxScore) {
+                maxScore = score;
                 bestMove = move;
             }
 
-            if (result.score > alpha) {
-                alpha = result.score;
+            if (score > alpha) {
+                alpha = score;
             }
             if (beta <= alpha) {
                 if (!isCapture) {
@@ -636,12 +777,11 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
             }
         }
 
-        // Store in transposition table using originalAlpha and originalBeta
         let flag = TT_EXACT;
         if (maxScore <= originalAlpha) {
-            flag = TT_ALPHA; // Failed low (Upper Bound)
+            flag = TT_ALPHA;
         } else if (maxScore >= originalBeta) {
-            flag = TT_BETA;  // Failed high (Lower Bound)
+            flag = TT_BETA;
         }
         ttStore(hash, depth, maxScore, flag, bestMove);
 
@@ -653,18 +793,45 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
             const move = moves[i];
             const isCapture = Boolean(board[move.to.row][move.to.col]);
             const movingPiece = board[move.from.row][move.from.col];
+            const isPromo = (movingPiece === 'P' || movingPiece === 'p') && (move.to.row === 0 || move.to.row === 7);
 
             const state = makeFastMove(move, player);
-            const result = minimax(depth - 1, nextPlayer, alpha, beta, true, ply + 1);
+            let score;
+
+            // Principal Variation Search (PVS) + Late Move Reductions (LMR)
+            if (i === 0) {
+                score = minimax(depth - 1, nextPlayer, alpha, beta, true, ply + 1, true).score;
+            } else {
+                let needsFullNullWindow = true;
+                // Late Move Reductions (LMR) for quiet late moves
+                if (depth >= 3 && i >= 3 && !isCapture && !isPromo && !inCheck) {
+                    const reduction = (depth >= 5 && i >= 8) ? 2 : 1;
+                    const reducedDepth = Math.max(1, depth - 1 - reduction);
+                    score = minimax(reducedDepth, nextPlayer, beta - 1, beta, true, ply + 1, true).score;
+                    needsFullNullWindow = (score < beta);
+                }
+
+                if (needsFullNullWindow && !searchAborted) {
+                    // PVS zero-window search
+                    score = minimax(depth - 1, nextPlayer, beta - 1, beta, true, ply + 1, true).score;
+                    if (!searchAborted && score < beta && score > alpha) {
+                        // Full-window re-search
+                        score = minimax(depth - 1, nextPlayer, alpha, beta, true, ply + 1, true).score;
+                    }
+                }
+            }
+
             unmakeFastMove(state);
 
-            if (result.score < minScore) {
-                minScore = result.score;
+            if (searchAborted) return { score: minScore === Infinity ? 0 : minScore, move: bestMove };
+
+            if (score < minScore) {
+                minScore = score;
                 bestMove = move;
             }
 
-            if (result.score < beta) {
-                beta = result.score;
+            if (score < beta) {
+                beta = score;
             }
             if (beta <= alpha) {
                 if (!isCapture) {
@@ -675,10 +842,6 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
             }
         }
 
-        // Store in transposition table using originalAlpha and originalBeta:
-        // - If minScore <= originalAlpha: Minimizer cut off early -> Upper Bound (TT_ALPHA)
-        // - If minScore >= originalBeta: Minimizer failed to lower score below originalBeta -> Lower Bound (TT_BETA)
-        // - Otherwise: Exact minimax value (TT_EXACT)
         let flag = TT_EXACT;
         if (minScore <= originalAlpha) {
             flag = TT_ALPHA;
@@ -692,10 +855,51 @@ function minimax(depth, player, alpha, beta, isMaximizing, ply = 0) {
 }
 
 // ============================================================================
+// Iterative Deepening Root Search with Time Management
+// ============================================================================
+function searchBestMoveWithIterativeDeepening(targetDepth, player) {
+    const isMaximizing = player === 'white';
+    const maxTime = DIFFICULTY_MAX_TIME_MS[targetDepth] || 1500;
+    const startTime = Date.now();
+
+    // For depths 1-3, allow full completion; for depths 4+, enforce hard deadline
+    searchDeadline = targetDepth <= 3 ? Infinity : (startTime + maxTime);
+    searchAborted = false;
+
+    let bestResult = { score: 0, move: null };
+    const startDepth = targetDepth <= 2 ? targetDepth : 1;
+
+    for (let d = startDepth; d <= targetDepth; d++) {
+        const res = minimax(d, player, -Infinity, Infinity, isMaximizing, 0, true);
+        if (searchAborted) {
+            // Keep the move from the last completed depth (or current if we have no move yet)
+            if (!bestResult.move && res.move) {
+                bestResult = res;
+            }
+            break;
+        }
+        if (res.move) {
+            bestResult = res;
+        }
+        // Stop early if a forced checkmate was already found
+        if (Math.abs(bestResult.score) >= 100000) {
+            break;
+        }
+        // Soft time limit: if we already spent > 55% of maxTime, don't start next deeper iteration
+        if (d >= 4 && d < targetDepth && (Date.now() - startTime) > maxTime * 0.55) {
+            break;
+        }
+    }
+
+    searchDeadline = Infinity;
+    searchAborted = false;
+    return bestResult;
+}
+
+// ============================================================================
 // Opening Book & AI Move Execution
 // ============================================================================
 
-// Convert move history to opening book lookup key (e.g. "e2e4,e7e5")
 function getOpeningBookMove() {
     if (moveHistory.length === 0 && currentPlayer === 'white') {
         const moves = openingBook['start'];
@@ -727,17 +931,16 @@ function getOpeningBookMove() {
     return null;
 }
 
-// Legacy helper kept for backward compatibility if called externally
+// Legacy helper kept for backward compatibility
 function simulateMoveForMinimax(move, player) {
     makeFastMove(move, player);
 }
 
-// AI Move entry point using Opening Book + Minimax algorithm
+// AI Move entry point using Opening Book + Iterative Deepening PVS/NMP/LMR
 function makeAIMove() {
     if (gameOver) return;
     if (gameMode === 'watch' && !watchMatchRunning) return;
 
-    // Clear any existing pending AI timer
     if (typeof aiMoveTimeout !== 'undefined' && aiMoveTimeout) {
         clearTimeout(aiMoveTimeout);
         aiMoveTimeout = null;
@@ -764,16 +967,13 @@ function makeAIMove() {
         }
     }
 
-    // Determine which difficulty to use
     let currentDifficulty = aiDifficulty;
     if (gameMode === 'watch') {
         currentDifficulty = currentPlayer === 'white' ? aiDifficultyWhite : aiDifficultyBlack;
     }
 
-    // Show thinking indicator
     showAIThinking(currentDifficulty);
 
-    // Use tracked aiMoveTimeout (0ms tick so browser paints each move smoothly at max speed)
     aiMoveTimeout = setTimeout(() => {
         aiMoveTimeout = null;
         if (gameOver || (gameMode === 'watch' && !watchMatchRunning)) {
@@ -783,9 +983,8 @@ function makeAIMove() {
 
         const startNodes = nodesEvaluated;
         const playerForSearch = currentPlayer;
-        const isMaximizing = playerForSearch === 'white';
 
-        const bestMove = minimax(currentDifficulty, playerForSearch, -Infinity, Infinity, isMaximizing, 0);
+        const bestMove = searchBestMoveWithIterativeDeepening(currentDifficulty, playerForSearch);
         lastMoveNodesEvaluated = Math.max(0, nodesEvaluated - startNodes);
 
         hideAIThinking();
@@ -794,7 +993,6 @@ function makeAIMove() {
 
         let chosenMove = bestMove && bestMove.move ? bestMove.move : null;
 
-        // Defensive validation: ensure chosen move is strictly legal on current board
         if (!chosenMove || !isValidMove(
             chosenMove.from.row, chosenMove.from.col,
             chosenMove.to.row, chosenMove.to.col, currentPlayer

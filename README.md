@@ -5,7 +5,7 @@ A fully-featured, browser-based chess game with AI opponent powered by minimax a
 ## Features
 
 - **Complete Chess Rules**: Castling, en passant (including horizontal pin detection), pawn promotion, 50-move rule, threefold repetition, and insufficient material draws
-- **AI Opponent**: Intelligent AI with 4 difficulty levels (Beginner to Hard), powered by Alpha-Beta pruning, Quiescence Search, 64-bit Zobrist Transposition Tables, Killer Moves, History Heuristics, and Tapered Piece-Square Evaluation
+- **AI Opponent**: Intelligent AI with 7 difficulty levels (Beginner to Grandmaster), powered by Iterative Deepening, Principal Variation Search (PVS), Null-Move Pruning (NMP), Late Move Reductions (LMR), Reverse Futility Pruning (RFP), Quiescence Search, 64-bit Zobrist Transposition Tables, Killer Moves, History Heuristics, and Tapered Piece-Square Evaluation
 - **Game Modes**:
   - Player vs AI (play as white against the computer)
   - AI vs AI (watch two AIs battle each other with Pause/Resume control)
@@ -42,10 +42,13 @@ A fully-featured, browser-based chess game with AI opponent powered by minimax a
 
 ## AI Difficulty Levels
 
-- **Level 1 (Beginner)**: Looks 1 move ahead
+- **Level 1 (Beginner)**: Looks 1 move ahead (+ capture resolution)
 - **Level 2 (Easy)**: Looks 2 moves ahead
 - **Level 3 (Medium)**: Looks 3 moves ahead
 - **Level 4 (Hard)**: Looks 4 moves ahead
+- **Level 5 (Expert)**: Looks 5 moves ahead
+- **Level 6 (Master)**: Looks 6 moves ahead
+- **Level 7 (Grandmaster)**: Looks 7 moves ahead
 
 In AI vs AI mode, you can set different difficulty levels for White and Black AI.
 

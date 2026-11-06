@@ -729,8 +729,8 @@ function getHint() {
 
         // Preserve AI node statistics so hints do not inflate game totals
         const savedNodes = nodesEvaluated;
-        const hintDepth = Math.max(aiDifficulty, 3);
-        const bestMove = minimax(hintDepth, currentPlayer, -Infinity, Infinity, currentPlayer === 'white', 0);
+        const hintDepth = Math.min(5, Math.max(aiDifficulty, 3));
+        const bestMove = searchBestMoveWithIterativeDeepening(hintDepth, currentPlayer);
         nodesEvaluated = savedNodes;
 
         if (bestMove && bestMove.move) {
@@ -954,15 +954,17 @@ function startNewGame() {
 function updateGameInfo() {
     const gameInfoEl = document.getElementById('gameInfo');
     const mobileGameInfoEl = document.getElementById('mobileGameInfo');
-    const diffNames = ['Beginner', 'Easy', 'Medium', 'Hard'];
+    const diffNames = typeof DIFFICULTY_NAMES !== 'undefined'
+        ? DIFFICULTY_NAMES
+        : ['Beginner', 'Easy', 'Medium', 'Hard', 'Expert', 'Master', 'Grandmaster'];
 
     let infoText;
     if (gameMode === 'watch') {
-        const whiteName = diffNames[aiDifficultyWhite - 1];
-        const blackName = diffNames[aiDifficultyBlack - 1];
+        const whiteName = diffNames[aiDifficultyWhite - 1] || `Depth ${aiDifficultyWhite}`;
+        const blackName = diffNames[aiDifficultyBlack - 1] || `Depth ${aiDifficultyBlack}`;
         infoText = `AI vs AI: ${whiteName} vs ${blackName}`;
     } else {
-        const diffName = diffNames[aiDifficulty - 1];
+        const diffName = diffNames[aiDifficulty - 1] || `Depth ${aiDifficulty}`;
         infoText = `Player vs AI (${diffName})`;
     }
 
@@ -979,7 +981,9 @@ function showAIThinking(currentDifficulty) {
     const thinkingText = document.getElementById('aiThinkingText');
     const mobileThinkingDialog = document.getElementById('mobileAiThinking');
     const mobileThinkingText = document.getElementById('mobileAiThinkingText');
-    const difficultyNames = ['Beginner', 'Easy', 'Medium', 'Hard'];
+    const difficultyNames = typeof DIFFICULTY_NAMES !== 'undefined'
+        ? DIFFICULTY_NAMES
+        : ['Beginner', 'Easy', 'Medium', 'Hard', 'Expert', 'Master', 'Grandmaster'];
     const difficultyName = difficultyNames[currentDifficulty - 1] || 'Unknown';
     const thinkingMessage = `${difficultyName} (depth ${currentDifficulty})`;
 

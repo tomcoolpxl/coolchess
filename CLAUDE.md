@@ -161,11 +161,14 @@ UI state in ui.js:
 
 ### AI Difficulty Levels
 
-Search depth controls difficulty:
-- Depth 1: Beginner (looks 1 move ahead)
+Search depth and Iterative Deepening time budgets control difficulty:
+- Depth 1: Beginner (looks 1 move ahead + capture resolution)
 - Depth 2: Easy (looks 2 moves ahead)
 - Depth 3: Medium (looks 3 moves ahead)
-- Depth 4: Hard (looks 4 moves ahead)
+- Depth 4: Hard (looks 4 moves ahead, up to 600ms budget)
+- Depth 5: Expert (looks 5 moves ahead, up to 1.0s budget)
+- Depth 6: Master (looks 6 moves ahead, up to 1.6s budget)
+- Depth 7: Grandmaster (looks 7 moves ahead, up to 2.5s budget)
 
 In AI vs AI mode, White and Black can have different difficulties.
 
