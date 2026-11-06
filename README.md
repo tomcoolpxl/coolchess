@@ -4,18 +4,18 @@ A fully-featured, browser-based chess game with AI opponent powered by minimax a
 
 ## Features
 
-- **Complete Chess Rules**: Castling, en passant, pawn promotion, 50-move rule, threefold repetition detection
-- **AI Opponent**: Intelligent AI with 4 difficulty levels (Beginner to Hard)
+- **Complete Chess Rules**: Castling, en passant (including horizontal pin detection), pawn promotion, 50-move rule, threefold repetition, and insufficient material draws
+- **AI Opponent**: Intelligent AI with 4 difficulty levels (Beginner to Hard), powered by Alpha-Beta pruning, Quiescence Search, 64-bit Zobrist Transposition Tables, Killer Moves, History Heuristics, and Tapered Piece-Square Evaluation
 - **Game Modes**:
   - Player vs AI (play as white against the computer)
-  - AI vs AI (watch two AIs battle each other)
+  - AI vs AI (watch two AIs battle each other with Pause/Resume control)
 - **Position Analysis**: Visual evaluation bar showing game advantage
 - **AI Statistics**: Shows positions evaluated per move and total for game
-- **Opening Book**: Varied opening moves including English Opening (c4)
-- **Smart Undo**: Reverts two moves (opponent + yours) to get back to your turn
-- **Move Hints**: Get AI suggestions for your next move
+- **Opening Book**: Varied master opening lines across the first 2–3 moves (Open Games, Sicilian, French, Caro-Kann, Queen's Gambit, Indian, Dutch, English, and Réti)
+- **Smart Undo**: Reverts moves cleanly back to your turn and supports cancelling pending promotions
+- **Move Hints**: Get AI suggestions for your next move without affecting game stats
 - **Unified New Game Dialog**: Configure mode and difficulty in one place
-- **Mobile Optimized**: Full responsive design with touch-friendly controls
+- **Mobile & Tablet Optimized**: Full responsive design with touch-friendly controls and keyboard (`Escape`) support
 
 ## Quick Start
 

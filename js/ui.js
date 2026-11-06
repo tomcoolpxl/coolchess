@@ -11,7 +11,11 @@ let hintArrowRemovalTimeout = null;
 let gameOverDialogTimeout = null;
 let aiMoveTimeout = null;
 let watchMatchRunning = false;
+let watchMatchPausedByDialog = false;
 let selectedDialogMode = 'ai'; // For new game dialog
+
+// Logical square size matching viewBox="0 0 560 560" on #moveArrowSvg (8 * 70 = 560)
+const LOGICAL_SQUARE_SIZE = 70;
 
 // ============================================================================
 // RENDERING
@@ -20,10 +24,8 @@ let selectedDialogMode = 'ai'; // For new game dialog
 // Render the chessboard
 function renderBoard() {
     const chessboard = document.getElementById('chessboard');
+    if (!chessboard) return;
     chessboard.innerHTML = '';
-
-    // Remove old coordinates
-    document.querySelectorAll('.coord-label').forEach(el => el.remove());
 
     for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
@@ -82,9 +84,10 @@ function renderBoard() {
     drawMoveArrow();
 }
 
-// Draw arrow showing last move
+// Draw arrow showing last move using resolution-independent viewBox="0 0 560 560"
 function drawMoveArrow() {
     const svg = document.getElementById('moveArrowSvg');
+    if (!svg) return;
 
     // Remove old arrows (including hint arrows)
     const oldArrows = svg.querySelectorAll('line, circle, .hint-arrow');
@@ -117,7 +120,7 @@ function drawMoveArrow() {
     }
 
     // Check if this is a new move
-    const moveKey = `${lastMove.from.row},${lastMove.from.col}->${lastMove.to.row},${lastMove.to.col}`;
+    const moveKey = `${lastMove.from.row},${lastMove.from.col}->${lastMove.to.row},${lastMove.to.col}@${moveHistory.length}`;
     const isNewMove = moveKey !== arrowFadeTimeoutMove;
 
     if (isNewMove) {
@@ -133,24 +136,19 @@ function drawMoveArrow() {
                 const arrows = svg.querySelectorAll('line, circle');
                 arrows.forEach(el => el.remove());
                 svg.classList.remove('fade-out');
-                // Remove last-move highlighting from squares
                 document.querySelectorAll('.square.last-move').forEach(sq => sq.classList.remove('last-move'));
                 arrowRemovalTimeout = null;
             }, ARROW_FADE_DURATION);
         }, ARROW_FADE_DELAY);
     }
 
-    // Get actual square size from rendered board
-    const boardSquare = document.querySelector('.square');
-    const squareSize = boardSquare ? boardSquare.offsetWidth : 70;
-    const fromX = lastMove.from.col * squareSize + squareSize / 2;
-    const fromY = lastMove.from.row * squareSize + squareSize / 2;
-    const toX = lastMove.to.col * squareSize + squareSize / 2;
-    const toY = lastMove.to.row * squareSize + squareSize / 2;
+    const fromX = lastMove.from.col * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
+    const fromY = lastMove.from.row * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
+    const toX = lastMove.to.col * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
+    const toY = lastMove.to.row * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
 
-    // Scale arrow elements based on square size
-    const circleRadius = squareSize / 8.75;
-    const strokeWidth = squareSize / 14;
+    const circleRadius = 8;
+    const strokeWidth = 5;
 
     // Draw start circle
     const startCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -175,16 +173,18 @@ function drawMoveArrow() {
     svg.appendChild(arrow);
 }
 
-// Draw hint arrow in different color
+// Draw hint arrow using logical SVG coordinates
 function drawHintArrow(fromRow, fromCol, toRow, toCol) {
     const svg = document.getElementById('moveArrowSvg');
+    if (!svg) return;
 
-    const boardSquare = document.querySelector('.square');
-    const squareSize = boardSquare ? boardSquare.offsetWidth : 70;
-    const fromX = fromCol * squareSize + squareSize / 2;
-    const fromY = fromRow * squareSize + squareSize / 2;
-    const toX = toCol * squareSize + squareSize / 2;
-    const toY = toRow * squareSize + squareSize / 2;
+    // Remove any existing hint arrows first
+    svg.querySelectorAll('.hint-arrow').forEach(el => el.remove());
+
+    const fromX = fromCol * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
+    const fromY = fromRow * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
+    const toX = toCol * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
+    const toY = toRow * LOGICAL_SQUARE_SIZE + LOGICAL_SQUARE_SIZE / 2;
 
     // Create arrow line (red dashed)
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -193,9 +193,9 @@ function drawHintArrow(fromRow, fromCol, toRow, toCol) {
     line.setAttribute('x2', toX);
     line.setAttribute('y2', toY);
     line.setAttribute('stroke', '#FF0000');
-    line.setAttribute('stroke-width', '4');
+    line.setAttribute('stroke-width', '4.5');
     line.setAttribute('stroke-linecap', 'round');
-    line.setAttribute('stroke-dasharray', '8,12');
+    line.setAttribute('stroke-dasharray', '8,10');
     line.setAttribute('marker-end', 'url(#arrowhead-hint)');
     line.classList.add('hint-arrow');
 
@@ -203,27 +203,9 @@ function drawHintArrow(fromRow, fromCol, toRow, toCol) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', fromX);
     circle.setAttribute('cy', fromY);
-    circle.setAttribute('r', '6');
+    circle.setAttribute('r', '7');
     circle.setAttribute('fill', '#FF0000');
     circle.classList.add('hint-arrow');
-
-    // Create arrowhead marker for hint if it doesn't exist
-    if (!svg.querySelector('#arrowhead-hint')) {
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        marker.setAttribute('id', 'arrowhead-hint');
-        marker.setAttribute('markerWidth', '10');
-        marker.setAttribute('markerHeight', '10');
-        marker.setAttribute('refX', '9');
-        marker.setAttribute('refY', '3');
-        marker.setAttribute('orient', 'auto');
-        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        polygon.setAttribute('points', '0 0, 10 3, 0 6');
-        polygon.setAttribute('fill', '#FF0000');
-        marker.appendChild(polygon);
-        defs.appendChild(marker);
-        svg.appendChild(defs);
-    }
 
     svg.appendChild(line);
     svg.appendChild(circle);
@@ -248,12 +230,19 @@ function drawHintArrow(fromRow, fromCol, toRow, toCol) {
     }, HINT_ARROW_DISPLAY_TIME);
 }
 
-// Highlight legal moves for selected piece
+// Highlight legal moves for selected piece (including en passant captures)
 function highlightLegalMoves(row, col) {
+    const piece = board[row][col];
+    const isPawn = piece && piece.toLowerCase() === 'p';
     const moves = getLegalMovesForPiece(row, col);
+
     moves.forEach(move => {
         const square = document.querySelector(`[data-row="${move.row}"][data-col="${move.col}"]`);
-        if (board[move.row][move.col]) {
+        if (!square) return;
+        const isEnPassantCapture = isPawn && !board[move.row][move.col] &&
+            enPassantTarget && move.row === enPassantTarget.row && move.col === enPassantTarget.col;
+
+        if (board[move.row][move.col] || isEnPassantCapture) {
             square.classList.add('legal-capture');
         } else {
             square.classList.add('legal-move');
@@ -261,13 +250,16 @@ function highlightLegalMoves(row, col) {
     });
 
     const selectedSq = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-    selectedSq.classList.add('selected');
+    if (selectedSq) {
+        selectedSq.classList.add('selected');
+    }
 }
 
-// Show promotion dialog
+// Show promotion dialog with properly colored pieces & cancel support
 function showPromotionDialog(row, col) {
     const isWhite = currentPlayer === 'white';
     const pieces = isWhite ? ['Q', 'R', 'B', 'N'] : ['q', 'r', 'b', 'n'];
+    const pieceNames = { 'q': 'Queen', 'r': 'Rook', 'b': 'Bishop', 'n': 'Knight' };
     const dialog = document.getElementById('promotionDialog');
     const overlay = document.getElementById('overlay');
     const piecesContainer = document.getElementById('promotionPieces');
@@ -275,21 +267,27 @@ function showPromotionDialog(row, col) {
     piecesContainer.innerHTML = '';
     pieces.forEach(piece => {
         const div = document.createElement('div');
-        div.className = 'promotion-piece';
+        div.className = `promotion-piece ${isWhite ? 'piece-white' : 'piece-black'}`;
         div.textContent = PIECES[piece];
+        div.title = pieceNames[piece.toLowerCase()];
         div.onclick = () => {
             dialog.classList.remove('show');
             overlay.classList.remove('show');
 
-            // Use the engine's completePromotion and UI wrapper
             executePromotionWithUI(piece);
 
             // Trigger AI if needed
             if (!gameOver) {
                 if (gameMode === 'ai' && currentPlayer === 'black') {
-                    setTimeout(() => { if (!gameOver) makeAIMove(); }, AI_MOVE_DELAY);
+                    aiMoveTimeout = setTimeout(() => {
+                        aiMoveTimeout = null;
+                        if (!gameOver) makeAIMove();
+                    }, AI_MOVE_DELAY);
                 } else if (gameMode === 'watch' && watchMatchRunning) {
-                    setTimeout(() => { if (!gameOver && watchMatchRunning) makeAIMove(); }, AI_WATCH_DELAY);
+                    aiMoveTimeout = setTimeout(() => {
+                        aiMoveTimeout = null;
+                        if (!gameOver && watchMatchRunning) makeAIMove();
+                    }, AI_WATCH_DELAY);
                 }
             }
         };
@@ -298,6 +296,24 @@ function showPromotionDialog(row, col) {
 
     overlay.classList.add('show');
     dialog.classList.add('show');
+}
+
+// Cancel pending pawn promotion and restore board
+function cancelPromotion() {
+    const dialog = document.getElementById('promotionDialog');
+    const overlay = document.getElementById('overlay');
+    if (dialog) dialog.classList.remove('show');
+    if (overlay) overlay.classList.remove('show');
+
+    if (typeof cancelPendingPromotion === 'function' && cancelPendingPromotion()) {
+        selectedSquare = null;
+        renderBoard();
+        updateStatus();
+        updateCapturedPieces();
+        updateEvaluationBar();
+        updateMoveCounter();
+        updateButtonStates();
+    }
 }
 
 // Update status display
@@ -310,13 +326,13 @@ function updateStatus() {
 
     if (gameOver) {
         statusText = gameOverReason || 'Game Over';
-        // Append evaluated positions summary at end of match
         const evaluatedCount = (typeof nodesEvaluated === 'number') ? nodesEvaluated : 0;
         const formattedNodes = evaluatedCount.toLocaleString();
         statusText += `<br>AI positions evaluated: ${formattedNodes}`;
     } else {
         if (gameMode === 'watch') {
-            statusText = `${currentPlayer === 'white' ? 'White' : 'Black'} to move`;
+            const stateLabel = watchMatchRunning ? 'to move' : '(Paused)';
+            statusText = `${currentPlayer === 'white' ? 'White' : 'Black'} ${stateLabel}`;
         } else {
             statusText = `${currentPlayer === 'white' ? 'White' : 'Black'}'s Turn`;
         }
@@ -326,28 +342,73 @@ function updateStatus() {
             statusText += ' - Check!';
         }
 
-        // After AI move completes, show per-move evaluated count (between moves)
         if (typeof lastMoveNodesEvaluated === 'number' && lastMoveNodesEvaluated > 0) {
             const formattedLast = lastMoveNodesEvaluated.toLocaleString();
             statusText += `<br>AI positions evaluated: ${formattedLast}`;
         }
     }
 
-    status.innerHTML = statusText;
-    status.className = statusClass;
-
+    if (status) {
+        status.innerHTML = statusText;
+        status.className = statusClass;
+    }
     if (mobileStatus) {
         mobileStatus.innerHTML = statusText;
         mobileStatus.className = statusClass;
     }
 }
 
-// Update captured pieces display
+// Update captured pieces display (sorted by value + material advantage badge)
 function updateCapturedPieces() {
-    document.getElementById('whiteCaptured').innerHTML =
-        capturedPieces.white.map(p => PIECES[p]).join(' ');
-    document.getElementById('blackCaptured').innerHTML =
-        capturedPieces.black.map(p => PIECES_HOLLOW[p]).join(' ');
+    const sortFn = (a, b) => (CAPTURE_SORT_ORDER[a] || 99) - (CAPTURE_SORT_ORDER[b] || 99);
+    const whiteCapturesSorted = capturedPieces.white.slice().sort(sortFn);
+    const blackCapturesSorted = capturedPieces.black.slice().sort(sortFn);
+
+    const whiteEl = document.getElementById('whiteCaptured');
+    const blackEl = document.getElementById('blackCaptured');
+    if (whiteEl) {
+        whiteEl.innerHTML = whiteCapturesSorted.map(p => PIECES[p]).join(' ');
+    }
+    if (blackEl) {
+        blackEl.innerHTML = blackCapturesSorted.map(p => PIECES_HOLLOW[p]).join(' ');
+    }
+
+    // Calculate material advantage from remaining pieces on the board
+    const matValues = { 'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0 };
+    let whiteMat = 0;
+    let blackMat = 0;
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const p = board[r][c];
+            if (!p) continue;
+            const v = matValues[p.toLowerCase()] || 0;
+            if (p === p.toUpperCase()) whiteMat += v;
+            else blackMat += v;
+        }
+    }
+
+    const diff = whiteMat - blackMat;
+    const whiteAdvEl = document.getElementById('whiteAdvantage');
+    const blackAdvEl = document.getElementById('blackAdvantage');
+
+    if (whiteAdvEl) {
+        if (diff > 0) {
+            whiteAdvEl.textContent = `+${diff}`;
+            whiteAdvEl.classList.add('active');
+        } else {
+            whiteAdvEl.textContent = '';
+            whiteAdvEl.classList.remove('active');
+        }
+    }
+    if (blackAdvEl) {
+        if (diff < 0) {
+            blackAdvEl.textContent = `+${Math.abs(diff)}`;
+            blackAdvEl.classList.add('active');
+        } else {
+            blackAdvEl.textContent = '';
+            blackAdvEl.classList.remove('active');
+        }
+    }
 }
 
 // Update evaluation bar
@@ -359,6 +420,7 @@ function updateEvaluationBar() {
 
     const evalFill = document.getElementById('evalFill');
     const evalText = document.getElementById('evalText');
+    if (!evalFill || !evalText) return;
 
     evalFill.style.height = percentage + '%';
 
@@ -367,18 +429,21 @@ function updateEvaluationBar() {
         evalText.textContent = '=';
         evalText.title = 'Position is equal';
     } else {
-        evalText.textContent = evalScore > 0 ? `+${evalScore}` : evalScore;
-        evalText.title = evalScore > 0 ? `White is winning by ${evalScore}` : `Black is winning by ${Math.abs(evalScore)}`;
+        evalText.textContent = evaluation > 0 ? `+${evalScore}` : evalScore;
+        evalText.title = evaluation > 0
+            ? `White is winning by ${evalScore}`
+            : `Black is winning by ${Math.abs(evalScore)}`;
     }
 }
 
 // Update move counter
 function updateMoveCounter() {
     const counter = document.getElementById('moveCounter');
+    if (!counter) return;
     let displayText = `Move ${fullMoveNumber}`;
 
     if (halfMoveClock > 20) {
-        displayText += ` | Draw in ${100 - halfMoveClock} moves`;
+        displayText += ` | Draw in ${Math.ceil((100 - halfMoveClock) / 2)} moves`;
     }
 
     counter.textContent = displayText;
@@ -388,6 +453,29 @@ function updateMoveCounter() {
 function updateButtonStates() {
     const undoBtn = document.getElementById('undoBtn');
     const hintBtn = document.getElementById('hintBtn');
+    const playerActionRow = document.getElementById('playerActionRow');
+    const watchActionRow = document.getElementById('watchActionRow');
+    const watchPauseBtn = document.getElementById('watchPauseBtn');
+    const quickAutoBattleBtn = document.getElementById('quickAutoBattleBtn');
+    const quickActionsTitle = document.getElementById('quickActionsTitle');
+
+    if (playerActionRow && watchActionRow) {
+        playerActionRow.style.display = gameMode === 'watch' ? 'none' : 'grid';
+        watchActionRow.style.display = gameMode === 'watch' ? 'grid' : 'none';
+    }
+
+    if (quickAutoBattleBtn) {
+        quickAutoBattleBtn.style.display = gameMode === 'watch' ? 'none' : 'block';
+    }
+
+    if (quickActionsTitle) {
+        quickActionsTitle.textContent = gameMode === 'watch' ? 'Auto-Battle Controls' : 'Quick Actions';
+    }
+
+    if (watchPauseBtn && gameMode === 'watch') {
+        watchPauseBtn.disabled = gameOver;
+        watchPauseBtn.textContent = watchMatchRunning ? '⏸ Pause' : '▶ Resume';
+    }
 
     if (undoBtn) {
         const canUndo = gameMode !== 'watch' && moveHistory.length > 0;
@@ -397,70 +485,124 @@ function updateButtonStates() {
     }
 
     if (hintBtn) {
-        const canHint = gameMode !== 'watch' && !gameOver;
+        const canHint = gameMode !== 'watch' && !gameOver && currentPlayer === 'white';
         hintBtn.disabled = !canHint;
         hintBtn.style.opacity = canHint ? '1' : '0.5';
         hintBtn.style.cursor = canHint ? 'pointer' : 'not-allowed';
     }
 }
 
-// ============================================================================
-// USER INPUT HANDLING
-// ============================================================================
+// Toggle Pause / Resume in AI vs AI Watch Mode
+function toggleWatchPause() {
+    if (gameMode !== 'watch' || gameOver) return;
+    watchMatchRunning = !watchMatchRunning;
+    updateButtonStates();
+    updateStatus();
 
-// Add move to history display
-function addMoveToHistory(moveInfo) {
-    const piece = moveInfo.piece;
-    const from = moveInfo.from;
-    const to = moveInfo.to;
-    const moveNumber = moveInfo.moveNumber;
-    const promotedTo = moveInfo.promotedTo;
-
-    const isWhite = piece === piece.toUpperCase();
-    const pieceSymbol = isWhite ? PIECES_HOLLOW[piece] : PIECES[piece];
-    let moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + from.col)}${8 - from.row} → ${String.fromCharCode(97 + to.col)}${8 - to.row}`;
-
-    if (promotedTo) {
-        moveNotation += `=${PIECES[promotedTo]}`;
+    if (watchMatchRunning) {
+        makeAIMove();
+    } else {
+        if (aiMoveTimeout) {
+            clearTimeout(aiMoveTimeout);
+            aiMoveTimeout = null;
+        }
+        hideAIThinking();
     }
-
-    const moveDiv = document.createElement('div');
-    moveDiv.textContent = `${moveNumber}. ${moveNotation}`;
-    const mobileMoveDiv = moveDiv.cloneNode(true);
-
-    document.getElementById('moveHistory').appendChild(moveDiv);
-    document.getElementById('moveHistory').scrollTop = document.getElementById('moveHistory').scrollHeight;
-    document.getElementById('mobileMoveHistory').appendChild(mobileMoveDiv);
-    document.getElementById('mobileMoveHistory').scrollTop = document.getElementById('mobileMoveHistory').scrollHeight;
 }
 
-// Show game over dialog
+// ============================================================================
+// MOVE HISTORY & USER INPUT HANDLING
+// ============================================================================
+
+// Format a single half-move for move history display
+function formatSingleMoveNotation(move) {
+    const piece = move.piece;
+    const from = move.from;
+    const to = move.to;
+    const promotedTo = move.promotedTo;
+    const isWhite = piece === piece.toUpperCase();
+    const pieceSymbol = isWhite ? PIECES_HOLLOW[piece] : PIECES[piece];
+    const captureChar = (move.captured || move.enPassantCaptured) ? '×' : '→';
+    let notation = `${pieceSymbol}${String.fromCharCode(97 + from.col)}${8 - from.row}${captureChar}${String.fromCharCode(97 + to.col)}${8 - to.row}`;
+    if (promotedTo) {
+        notation += `=${isWhite ? PIECES_HOLLOW[promotedTo] : PIECES[promotedTo]}`;
+    }
+    return notation;
+}
+
+// Add move to history display (paired White + Black moves per row)
+function addMoveToHistory() {
+    updateMoveHistoryDisplay();
+}
+
+// Rebuild move history display with paired White/Black columns
+function updateMoveHistoryDisplay() {
+    const moveHistoryEl = document.getElementById('moveHistory');
+    const mobileMoveHistoryEl = document.getElementById('mobileMoveHistory');
+    if (!moveHistoryEl || !mobileMoveHistoryEl) return;
+
+    moveHistoryEl.innerHTML = '';
+    mobileMoveHistoryEl.innerHTML = '';
+
+    for (let i = 0; i < moveHistory.length; i += 2) {
+        const whiteMove = moveHistory[i];
+        const blackMove = moveHistory[i + 1];
+        const moveNum = whiteMove.fullMoveNumber || Math.floor(i / 2) + 1;
+
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'move-row';
+
+        const numSpan = document.createElement('span');
+        numSpan.className = 'move-num';
+        numSpan.textContent = `${moveNum}.`;
+
+        const whiteSpan = document.createElement('span');
+        whiteSpan.className = 'move-white';
+        whiteSpan.textContent = formatSingleMoveNotation(whiteMove);
+
+        const blackSpan = document.createElement('span');
+        blackSpan.className = 'move-black';
+        blackSpan.textContent = blackMove ? formatSingleMoveNotation(blackMove) : '';
+
+        rowDiv.appendChild(numSpan);
+        rowDiv.appendChild(whiteSpan);
+        rowDiv.appendChild(blackSpan);
+
+        const mobileRowDiv = rowDiv.cloneNode(true);
+        moveHistoryEl.appendChild(rowDiv);
+        mobileMoveHistoryEl.appendChild(mobileRowDiv);
+    }
+
+    moveHistoryEl.scrollTop = moveHistoryEl.scrollHeight;
+    mobileMoveHistoryEl.scrollTop = mobileMoveHistoryEl.scrollHeight;
+}
+
+// Show game over dialog (stays open until user clicks View Board, New Game, or overlay)
 function showGameOverDialog(gameOverResult) {
     const gameOverDialog = document.getElementById('gameOver');
     const overlay = document.getElementById('overlay');
     const title = document.getElementById('gameOverTitle');
     const message = document.getElementById('gameOverMessage');
 
+    if (watchMatchRunning) {
+        watchMatchRunning = false;
+        updateButtonStates();
+    }
+
     title.textContent = gameOverResult.reason;
-    
-    // Format nodes evaluated with thousands separator
+
     const evaluatedCount = (typeof nodesEvaluated === 'number') ? nodesEvaluated : 0;
     const formattedNodes = evaluatedCount.toLocaleString();
-    // Use HTML line breaks so it renders on the dialog
     message.innerHTML = `${gameOverResult.message}<br><br>AI positions evaluated: ${formattedNodes}`;
 
     overlay.classList.add('show');
     gameOverDialog.classList.add('show');
+}
 
-    // Auto-close dialog after 2 seconds
-    if (gameOverDialogTimeout) {
-        clearTimeout(gameOverDialogTimeout);
-    }
-    gameOverDialogTimeout = setTimeout(() => {
-        gameOverDialog.classList.remove('show');
-        overlay.classList.remove('show');
-        gameOverDialogTimeout = null;
-    }, 2000);
+// Close game over dialog to inspect the final board
+function closeGameOver() {
+    document.getElementById('gameOver').classList.remove('show');
+    document.getElementById('overlay').classList.remove('show');
 }
 
 // UI wrapper for makeMove - handles all UI updates after a move
@@ -469,16 +611,15 @@ function executeMoveWithUI(fromRow, fromCol, toRow, toCol, promotionPiece = null
 
     if (!result.success) return result;
 
-    // If promotion is needed, show dialog and return
+    // If promotion is needed, render pawn on last rank and show promotion dialog
     if (result.needsPromotion) {
+        renderBoard();
         showPromotionDialog(toRow, toCol);
         return result;
     }
 
-    // Add move to history
+    // Update move history and all UI elements
     addMoveToHistory(result.moveInfo);
-
-    // Update all UI elements
     renderBoard();
     updateStatus();
     updateCapturedPieces();
@@ -500,10 +641,7 @@ function executePromotionWithUI(promotionPiece) {
 
     if (!result || !result.success) return result;
 
-    // Add move to history
     addMoveToHistory(result.moveInfo);
-
-    // Update all UI elements
     renderBoard();
     updateStatus();
     updateCapturedPieces();
@@ -511,7 +649,6 @@ function executePromotionWithUI(promotionPiece) {
     updateMoveCounter();
     updateButtonStates();
 
-    // Handle game over
     if (result.gameOverResult && result.gameOverResult.isOver) {
         showGameOverDialog(result.gameOverResult);
     }
@@ -522,6 +659,7 @@ function executePromotionWithUI(promotionPiece) {
 // Handle square click
 function handleSquareClick(row, col) {
     if (gameOver) return;
+    if (pendingPromotion) return;
     if (gameMode === 'watch') return;
     if (gameMode === 'ai' && currentPlayer === 'black') return;
 
@@ -532,15 +670,21 @@ function handleSquareClick(row, col) {
         const fromCol = selectedSquare.col;
 
         if (isValidMove(fromRow, fromCol, row, col)) {
-            const result = executeMoveWithUI(fromRow, fromCol, row, col);
             selectedSquare = null;
+            const result = executeMoveWithUI(fromRow, fromCol, row, col);
 
             // Only trigger AI if move completed (not waiting for promotion)
             if (!result.needsPromotion && !gameOver) {
                 if (gameMode === 'ai' && currentPlayer === 'black') {
-                    setTimeout(() => { if (!gameOver) makeAIMove(); }, AI_MOVE_DELAY);
+                    aiMoveTimeout = setTimeout(() => {
+                        aiMoveTimeout = null;
+                        if (!gameOver) makeAIMove();
+                    }, AI_MOVE_DELAY);
                 } else if (gameMode === 'watch' && watchMatchRunning) {
-                    setTimeout(() => { if (!gameOver && watchMatchRunning) makeAIMove(); }, AI_WATCH_DELAY);
+                    aiMoveTimeout = setTimeout(() => {
+                        aiMoveTimeout = null;
+                        if (!gameOver && watchMatchRunning) makeAIMove();
+                    }, AI_WATCH_DELAY);
                 }
             }
         } else {
@@ -562,10 +706,11 @@ function handleSquareClick(row, col) {
     }
 }
 
-// Get hint for current player
+// Get hint for current player without polluting game-wide AI nodesEvaluated
 function getHint() {
     if (gameOver) return;
     if (gameMode === 'watch') return;
+    if (currentPlayer !== 'white') return;
 
     const hintBtn = document.getElementById('hintBtn');
     const hintText = document.getElementById('hintText');
@@ -580,26 +725,30 @@ function getHint() {
     hintText.textContent = 'Calculating best move...';
 
     setTimeout(() => {
-        const bestMove = minimax(Math.min(aiDifficulty, 2), currentPlayer, -Infinity, Infinity, currentPlayer === 'white');
+        if (gameOver || currentPlayer !== 'white') return;
 
-        if (bestMove.move) {
+        // Preserve AI node statistics so hints do not inflate game totals
+        const savedNodes = nodesEvaluated;
+        const hintDepth = Math.max(aiDifficulty, 3);
+        const bestMove = minimax(hintDepth, currentPlayer, -Infinity, Infinity, currentPlayer === 'white', 0);
+        nodesEvaluated = savedNodes;
+
+        if (bestMove && bestMove.move) {
             const piece = board[bestMove.move.from.row][bestMove.move.from.col];
             const fromSquare = String.fromCharCode(97 + bestMove.move.from.col) + (8 - bestMove.move.from.row);
             const toSquare = String.fromCharCode(97 + bestMove.move.to.col) + (8 - bestMove.move.to.row);
 
             hintText.textContent = `Suggested move: ${PIECES[piece]} from ${fromSquare} to ${toSquare}`;
-            drawHintArrow(bestMove.move.from.row, bestMove.move.from.col,
-                         bestMove.move.to.row, bestMove.move.to.col);
+            drawHintArrow(
+                bestMove.move.from.row, bestMove.move.from.col,
+                bestMove.move.to.row, bestMove.move.to.col
+            );
         } else {
             hintText.textContent = 'No legal moves available.';
         }
 
-        if (hintBtn) {
-            hintBtn.disabled = false;
-            hintBtn.style.opacity = '1';
-            hintBtn.style.cursor = 'pointer';
-        }
-    }, 100);
+        updateButtonStates();
+    }, 30);
 }
 
 // ============================================================================
@@ -610,17 +759,63 @@ function getHint() {
 function newGame() {
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('gameOver').classList.remove('show');
-
-    // Show new game dialog to let user configure options
     showNewGameDialog();
 }
 
-// Undo move(s) - undoes 2 moves to return to player's turn
+// Instant 1-click Rematch with current mode & difficulty settings
+function restartCurrentGame() {
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('gameOver').classList.remove('show');
+    document.getElementById('newGameDialog').classList.remove('show');
+
+    clearAllTimeouts();
+    watchMatchRunning = false;
+    watchMatchPausedByDialog = false;
+
+    ttClear();
+    initGame();
+    initUI();
+    updateGameInfo();
+
+    if (gameMode === 'watch') {
+        watchMatchRunning = true;
+        updateButtonStates();
+        updateStatus();
+        aiMoveTimeout = setTimeout(() => {
+            aiMoveTimeout = null;
+            if (!gameOver && watchMatchRunning) makeAIMove();
+        }, AI_MOVE_DELAY);
+    }
+}
+
+// 1-click transition directly into AI vs AI Auto-Battle mode
+function startInstantAutoBattle() {
+    gameMode = 'watch';
+    restartCurrentGame();
+}
+
+// Undo move(s) - always returns cleanly to White's turn
 function undoMove() {
     if (gameMode === 'watch') return;
 
-    // Undo 2 moves (AI + player) or just 1 if only 1 exists
-    if (moveHistory.length < 2) {
+    // Cancel any in-flight AI move timer
+    if (aiMoveTimeout) {
+        clearTimeout(aiMoveTimeout);
+        aiMoveTimeout = null;
+    }
+    hideAIThinking();
+
+    // If promotion dialog is open, cancel the pending promotion first
+    if (pendingPromotion) {
+        cancelPromotion();
+        return;
+    }
+
+    if (moveHistory.length === 0) return;
+
+    // If it's currently Black's turn (e.g. AI hasn't moved yet or Black was checkmated),
+    // undo 1 move to return to White's turn. If it's White's turn, undo 2 moves (AI + White).
+    if (currentPlayer === 'black' || moveHistory.length === 1) {
         const result = undoSingleMove();
         if (!result.success) return;
     } else {
@@ -630,14 +825,15 @@ function undoMove() {
         if (!result2.success) return;
     }
 
+    selectedSquare = null;
     gameOver = false;
     gameOverReason = '';
+    lastMoveNodesEvaluated = 0;
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('gameOver').classList.remove('show');
+    document.getElementById('promotionDialog').classList.remove('show');
 
-    // Remove last move(s) from history display
     updateMoveHistoryDisplay();
-
     renderBoard();
     updateStatus();
     updateCapturedPieces();
@@ -646,67 +842,42 @@ function undoMove() {
     updateButtonStates();
 }
 
-// Update move history display to match current state
-function updateMoveHistoryDisplay() {
-    const moveHistoryEl = document.getElementById('moveHistory');
-    const mobileMoveHistoryEl = document.getElementById('mobileMoveHistory');
-
-    // Rebuild move history from scratch
-    moveHistoryEl.innerHTML = '';
-    mobileMoveHistoryEl.innerHTML = '';
-
-    moveHistory.forEach(move => {
-        const piece = move.piece;
-        const from = move.from;
-        const to = move.to;
-
-        const isWhite = piece === piece.toUpperCase();
-        const pieceSymbol = isWhite ? PIECES_HOLLOW[piece] : PIECES[piece];
-        const moveNotation = `${pieceSymbol} ${String.fromCharCode(97 + from.col)}${8 - from.row} → ${String.fromCharCode(97 + to.col)}${8 - to.row}`;
-
-        const moveNumber = move.fullMoveNumber;
-        const moveDiv = document.createElement('div');
-        moveDiv.textContent = `${moveNumber}. ${moveNotation}`;
-        const mobileMoveDiv = moveDiv.cloneNode(true);
-
-        moveHistoryEl.appendChild(moveDiv);
-        mobileMoveHistoryEl.appendChild(mobileMoveDiv);
-    });
-
-    moveHistoryEl.scrollTop = moveHistoryEl.scrollHeight;
-    mobileMoveHistoryEl.scrollTop = mobileMoveHistoryEl.scrollHeight;
-}
-
 // ============================================================================
 // NEW GAME DIALOG
 // ============================================================================
 
 // Show the new game dialog
 function showNewGameDialog() {
-    // Pause AI vs AI if running
-    if (gameMode === 'watch') {
+    // Pause AI vs AI if running and remember if it was active
+    watchMatchPausedByDialog = false;
+    if (gameMode === 'watch' && watchMatchRunning) {
+        watchMatchPausedByDialog = true;
         watchMatchRunning = false;
+        if (aiMoveTimeout) {
+            clearTimeout(aiMoveTimeout);
+            aiMoveTimeout = null;
+        }
+        hideAIThinking();
+        updateButtonStates();
+        updateStatus();
     }
 
-    // Sync dialog with current settings
     syncNewGameDialog();
 
+    document.getElementById('gameOver').classList.remove('show');
     document.getElementById('overlay').classList.add('show');
     document.getElementById('newGameDialog').classList.add('show');
 }
 
 // Sync dialog values with current game settings
 function syncNewGameDialog() {
-    // Set mode toggle
     selectedDialogMode = gameMode;
     document.getElementById('modePlayerVsAI').classList.toggle('active', gameMode === 'ai');
     document.getElementById('modeAIvsAI').classList.toggle('active', gameMode === 'watch');
 
-    // Show/hide appropriate difficulty sections
     document.getElementById('singleAISection').style.display = gameMode === 'ai' ? 'block' : 'none';
     document.getElementById('dualAISection').style.display = gameMode === 'watch' ? 'block' : 'none';
 
-    // Set difficulty values
     document.getElementById('newGameDifficulty').value = aiDifficulty;
     document.getElementById('newGameWhiteAI').value = aiDifficultyWhite;
     document.getElementById('newGameBlackAI').value = aiDifficultyBlack;
@@ -716,11 +887,9 @@ function syncNewGameDialog() {
 function selectGameMode(mode) {
     selectedDialogMode = mode;
 
-    // Update toggle buttons
     document.getElementById('modePlayerVsAI').classList.toggle('active', mode === 'ai');
     document.getElementById('modeAIvsAI').classList.toggle('active', mode === 'watch');
 
-    // Show/hide appropriate difficulty sections
     document.getElementById('singleAISection').style.display = mode === 'ai' ? 'block' : 'none';
     document.getElementById('dualAISection').style.display = mode === 'watch' ? 'block' : 'none';
 }
@@ -730,34 +899,38 @@ function cancelNewGame() {
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('newGameDialog').classList.remove('show');
 
-    // Resume AI vs AI if was running and game not over
-    if (gameMode === 'watch' && !gameOver && moveHistory.length > 0) {
+    // Resume AI vs AI if it was paused by opening the dialog (works even on Move 1!)
+    if (gameMode === 'watch' && watchMatchPausedByDialog && !gameOver) {
+        watchMatchPausedByDialog = false;
         watchMatchRunning = true;
-        setTimeout(makeAIMove, AI_MOVE_DELAY);
+        updateButtonStates();
+        updateStatus();
+        aiMoveTimeout = setTimeout(() => {
+            aiMoveTimeout = null;
+            if (!gameOver && watchMatchRunning) makeAIMove();
+        }, AI_MOVE_DELAY);
     }
 }
 
 // Start new game with dialog settings
 function startNewGame() {
-    // Read dialog values
     gameMode = selectedDialogMode;
 
     if (gameMode === 'watch') {
-        aiDifficultyWhite = parseInt(document.getElementById('newGameWhiteAI').value);
-        aiDifficultyBlack = parseInt(document.getElementById('newGameBlackAI').value);
+        aiDifficultyWhite = parseInt(document.getElementById('newGameWhiteAI').value, 10);
+        aiDifficultyBlack = parseInt(document.getElementById('newGameBlackAI').value, 10);
     } else {
-        aiDifficulty = parseInt(document.getElementById('newGameDifficulty').value);
+        aiDifficulty = parseInt(document.getElementById('newGameDifficulty').value, 10);
     }
 
-    // Close dialog
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('newGameDialog').classList.remove('show');
 
-    // Clear UI state
     clearAllTimeouts();
     watchMatchRunning = false;
+    watchMatchPausedByDialog = false;
 
-    // Clear transposition table for fresh game
+    // Clear transposition table and search heuristics for fresh game
     ttClear();
 
     // Reset and start
@@ -768,7 +941,12 @@ function startNewGame() {
     // Start AI vs AI match automatically
     if (gameMode === 'watch') {
         watchMatchRunning = true;
-        setTimeout(makeAIMove, AI_MOVE_DELAY);
+        updateButtonStates();
+        updateStatus();
+        aiMoveTimeout = setTimeout(() => {
+            aiMoveTimeout = null;
+            if (!gameOver && watchMatchRunning) makeAIMove();
+        }, AI_MOVE_DELAY);
     }
 }
 
@@ -804,32 +982,24 @@ function showAIThinking(currentDifficulty) {
     const difficultyNames = ['Beginner', 'Easy', 'Medium', 'Hard'];
     const difficultyName = difficultyNames[currentDifficulty - 1] || 'Unknown';
     const thinkingMessage = `${difficultyName} (depth ${currentDifficulty})`;
-    thinkingText.textContent = thinkingMessage;
-    thinkingDialog.classList.add('show');
-    if (mobileThinkingText) {
-        mobileThinkingText.textContent = thinkingMessage;
-    }
-    if (mobileThinkingDialog) {
-        mobileThinkingDialog.classList.add('show');
-    }
 
-    // Thinking indicator only; status updates will occur after computation
+    if (thinkingText) thinkingText.textContent = thinkingMessage;
+    if (thinkingDialog) thinkingDialog.classList.add('show');
+    if (mobileThinkingText) mobileThinkingText.textContent = thinkingMessage;
+    if (mobileThinkingDialog) mobileThinkingDialog.classList.add('show');
 }
 
 function hideAIThinking() {
     const thinkingDialog = document.getElementById('aiThinking');
     const mobileThinkingDialog = document.getElementById('mobileAiThinking');
-    thinkingDialog.classList.remove('show');
-    if (mobileThinkingDialog) {
-        mobileThinkingDialog.classList.remove('show');
-    }
+    if (thinkingDialog) thinkingDialog.classList.remove('show');
+    if (mobileThinkingDialog) mobileThinkingDialog.classList.remove('show');
 
-    // Update status once after computation finishes
     updateStatus();
 }
 
 // ============================================================================
-// DIALOGS
+// DIALOGS & KEYBOARD ACCESSIBILITY
 // ============================================================================
 
 function showInfo() {
@@ -846,6 +1016,8 @@ function handleOverlayClick() {
     const mobileMenu = document.getElementById('mobileMenu');
     const infoDialog = document.getElementById('infoDialog');
     const newGameDialog = document.getElementById('newGameDialog');
+    const gameOverDialog = document.getElementById('gameOver');
+    const promotionDialog = document.getElementById('promotionDialog');
 
     if (mobileMenu && mobileMenu.classList.contains('show')) {
         closeMobileMenu();
@@ -853,6 +1025,10 @@ function handleOverlayClick() {
         closeInfo();
     } else if (newGameDialog && newGameDialog.classList.contains('show')) {
         cancelNewGame();
+    } else if (gameOverDialog && gameOverDialog.classList.contains('show')) {
+        closeGameOver();
+    } else if (promotionDialog && promotionDialog.classList.contains('show')) {
+        cancelPromotion();
     }
 }
 
@@ -864,6 +1040,31 @@ function openMobileMenu() {
 function closeMobileMenu() {
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('mobileMenu').classList.remove('show');
+}
+
+// Support Escape key to dismiss active dialogs and Enter key to start/rematch
+if (typeof document !== 'undefined') {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('overlay');
+            if (overlay && overlay.classList.contains('show')) {
+                handleOverlayClick();
+            } else if (selectedSquare) {
+                selectedSquare = null;
+                renderBoard();
+            }
+        } else if (e.key === 'Enter') {
+            const newGameDialog = document.getElementById('newGameDialog');
+            const gameOverDialog = document.getElementById('gameOver');
+            if (newGameDialog && newGameDialog.classList.contains('show')) {
+                e.preventDefault();
+                startNewGame();
+            } else if (gameOverDialog && gameOverDialog.classList.contains('show')) {
+                e.preventDefault();
+                restartCurrentGame();
+            }
+        }
+    });
 }
 
 // ============================================================================
@@ -883,7 +1084,6 @@ function clearAllTimeouts() {
 
 // Initialize UI elements after game init
 function initUI() {
-    // Clear SVG arrows
     const svg = document.getElementById('moveArrowSvg');
     if (svg) {
         const arrows = svg.querySelectorAll('line, circle, .hint-arrow');
@@ -892,9 +1092,9 @@ function initUI() {
         svg.style.opacity = '1';
     }
 
-    // Ensure all overlays and dialogs are hidden
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('promotionDialog').classList.remove('show');
+    document.getElementById('gameOver').classList.remove('show');
     document.getElementById('aiThinking').classList.remove('show');
     const mobileAiThinking = document.getElementById('mobileAiThinking');
     if (mobileAiThinking) {

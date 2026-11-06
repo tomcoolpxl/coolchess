@@ -9,42 +9,46 @@
 <body>
     <div class="overlay" id="overlay" onclick="handleOverlayClick()"></div>
 
-    <div class="game-over" id="gameOver">
+    <div class="game-over" id="gameOver" role="dialog" aria-labelledby="gameOverTitle">
         <h2 id="gameOverTitle">Game Over</h2>
         <p id="gameOverMessage"></p>
+        <div class="game-over-buttons">
+            <button onclick="closeGameOver()">View Board</button>
+            <button onclick="restartCurrentGame()" class="primary">⚡ Rematch</button>
+            <button onclick="newGame()">Setup</button>
+        </div>
     </div>
 
-    <div class="promotion-dialog" id="promotionDialog">
+    <div class="promotion-dialog" id="promotionDialog" role="dialog" aria-label="Pawn Promotion">
         <h3>Choose a piece to promote to:</h3>
         <div class="promotion-pieces" id="promotionPieces"></div>
+        <button class="promotion-cancel-btn" onclick="cancelPromotion()">Cancel</button>
     </div>
 
-    <div class="info-dialog" id="infoDialog">
-        <h2>How coolChess Works</h2>
+    <div class="info-dialog" id="infoDialog" role="dialog" aria-labelledby="infoDialogTitle">
+        <h2 id="infoDialogTitle">How coolChess Works</h2>
         <div class="info-content">
-            <h3>Minimax Algorithm</h3>
-            <p>The AI uses the minimax algorithm with alpha-beta pruning, transposition tables, and intelligent move ordering to evaluate moves.</p>
+            <h3>Minimax &amp; Search Algorithms</h3>
+            <p>The AI uses the minimax algorithm with alpha-beta pruning, quiescence search, 64-bit Zobrist transposition tables, and multi-stage move ordering to evaluate moves.</p>
             <p>The algorithm works by:</p>
             <ul>
-                <li>Generating all possible legal moves from the current position</li>
-                <li>Ordering moves intelligently (captures and checks first) to improve alpha-beta pruning efficiency</li>
-                <li>For each move, simulating the opponent's best response</li>
-                <li>Recursively evaluating positions to a specified depth</li>
+                <li>Generating legal moves using fast piece-specific candidate rays and in-place make/unmake state transitions</li>
+                <li>Ordering moves via Transposition Table PV moves, promotions, MVV-LVA captures, Killer Moves, and History Heuristics</li>
+                <li>Recursively evaluating positions to the selected depth and extending tactical captures via Quiescence Search to prevent horizon blunders</li>
                 <li>Using alpha-beta pruning to eliminate branches that cannot affect the final decision</li>
-                <li>Caching evaluated positions in a transposition table to avoid re-computing identical board states</li>
-                <li>Scoring positions based on material count and piece positioning</li>
-                <li>Selecting the move that maximizes the AI's position while minimizing yours</li></ul>
-            <p>Difficulty levels control search depth. Higher depth means the AI evaluates more moves ahead but takes longer to compute. Depth 1 evaluates only immediate moves. Depth 4 searches four moves into the future.</p>
+                <li>Caching evaluated positions in a 1M-entry 64-bit Zobrist transposition table with exact, upper, and lower bounds</li>
+                <li>Scoring positions with Tapered Piece-Square Tables (interpolating Middlegame and Endgame King tables), bishop pair bonuses, and piece mobility</li>
+            </ul>
+            <p>Difficulty levels control search depth. Higher depth means the AI evaluates more moves ahead. Depth 1 evaluates immediate moves plus capture resolution; Depth 4 searches four plies deep plus tactical quiescence.</p>
 
             <h3>Opening Book</h3>
-            <p>The first 2-3 moves use a pre-programmed opening book instead of calculation.</p>
-            <p>Programmed moves:</p>
+            <p>The first 2–3 moves use a pre-programmed opening book for instant, varied master openings:</p>
             <ul>
-                <li>White's first move: 4 options (e4, d4, c4, Nf3)</li>
-                <li>Black's response to e4: 4 options (e5, c5, e6, c6)</li>
-                <li>Black's response to d4: 3 options (d5, Nf6, f6)</li>
+                <li>White's first move: 4 options (1. e4, 1. d4, 1. c4 English, 1. Nf3 Réti)</li>
+                <li>Black's responses to 1. e4: e5, c5 (Sicilian), e6 (French), c6 (Caro-Kann)</li>
+                <li>Black's responses to 1. d4: d5, Nf6 (Indian), f5 (Dutch Defense)</li>
+                <li>Black's responses to 1. c4 &amp; 1. Nf3: e5, c5, d5, Nf6 plus main-line 2nd-move continuations</li>
             </ul>
-            <p>Total: 11 pre-programmed moves. The AI randomly selects from available options.</p>
         </div>
         <div style="text-align: center; margin-top: 20px;">
             <img src="assets/img/maurice_cool.jpg" alt="Maurice" style="max-width: 300px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
@@ -53,8 +57,8 @@
         <button onclick="closeInfo()">Close</button>
     </div>
 
-    <div class="new-game-dialog" id="newGameDialog">
-        <h2>New Game</h2>
+    <div class="new-game-dialog" id="newGameDialog" role="dialog" aria-labelledby="newGameDialogTitle">
+        <h2 id="newGameDialogTitle">New Game</h2>
         <div class="new-game-content">
             <div class="new-game-section">
                 <label>Game Mode</label>
@@ -65,28 +69,28 @@
             </div>
 
             <div class="new-game-section" id="singleAISection">
-                <label>AI Difficulty</label>
+                <label for="newGameDifficulty">AI Difficulty</label>
                 <select id="newGameDifficulty">
                     <option value="1">Beginner (Depth 1)</option>
-                    <option value="2" selected>Easy (Depth 2)</option>
-                    <option value="3">Medium (Depth 3)</option>
+                    <option value="2">Easy (Depth 2)</option>
+                    <option value="3" selected>Medium (Depth 3)</option>
                     <option value="4">Hard (Depth 4)</option>
                 </select>
             </div>
 
             <div class="new-game-section" id="dualAISection" style="display: none;">
-                <label>White AI</label>
+                <label for="newGameWhiteAI">White AI</label>
                 <select id="newGameWhiteAI">
                     <option value="1">Beginner (Depth 1)</option>
-                    <option value="2" selected>Easy (Depth 2)</option>
-                    <option value="3">Medium (Depth 3)</option>
+                    <option value="2">Easy (Depth 2)</option>
+                    <option value="3" selected>Medium (Depth 3)</option>
                     <option value="4">Hard (Depth 4)</option>
                 </select>
-                <label style="margin-top: 10px;">Black AI</label>
+                <label for="newGameBlackAI" style="margin-top: 10px;">Black AI</label>
                 <select id="newGameBlackAI">
                     <option value="1">Beginner (Depth 1)</option>
-                    <option value="2" selected>Easy (Depth 2)</option>
-                    <option value="3">Medium (Depth 3)</option>
+                    <option value="2">Easy (Depth 2)</option>
+                    <option value="3" selected>Medium (Depth 3)</option>
                     <option value="4">Hard (Depth 4)</option>
                 </select>
             </div>
@@ -97,7 +101,7 @@
         </div>
     </div>
 
-    <div class="mobile-menu" id="mobileMenu">
+    <div class="mobile-menu" id="mobileMenu" role="dialog" aria-label="Move History">
         <h2>Move History</h2>
         <div class="mobile-menu-content" onclick="event.stopPropagation()">
             <div class="move-history" id="mobileMoveHistory"></div>
@@ -112,7 +116,7 @@
             <button class="mobile-info-btn" onclick="showInfo()" aria-label="Show information about how the AI works">i</button>
         </div>
         <div class="mobile-status-bar">
-            <div class="mobile-game-info" id="mobileGameInfo">Player vs AI (Easy)</div>
+            <div class="mobile-game-info" id="mobileGameInfo" onclick="showNewGameDialog()" title="Tap to change mode or AI difficulty">Player vs AI (Medium)</div>
             <div class="status" id="mobileStatus">White's Turn</div>
         </div>
         <div class="ai-thinking" id="mobileAiThinking">
@@ -127,16 +131,19 @@
                 <div style="position: relative;">
                     <div class="evaluation-bar">
                         <div class="eval-fill" id="evalFill"></div>
-                        <div class="eval-text" id="evalText">0.0</div>
+                        <div class="eval-text" id="evalText">=</div>
                     </div>
                     <div style="position: absolute; left: -30px; top: 5px; font-size: 11px; font-weight: bold; color: #f0f0f0; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">W</div>
                     <div style="position: absolute; left: -30px; bottom: 5px; font-size: 11px; font-weight: bold; color: #333;">B</div>
                 </div>
                 <div class="board-with-coords">
-                    <svg class="move-arrow-svg" id="moveArrowSvg">
+                    <svg class="move-arrow-svg" id="moveArrowSvg" viewBox="0 0 560 560" preserveAspectRatio="none">
                         <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
                                 <polygon points="0 0, 10 3, 0 6" fill="rgba(255, 170, 0, 0.8)" />
+                            </marker>
+                            <marker id="arrowhead-hint" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#FF0000" />
                             </marker>
                         </defs>
                     </svg>
@@ -147,10 +154,15 @@
             <!-- Controls below board -->
             <div class="board-controls">
                 <div class="control-section">
-                    <h3>Quick Actions</h3>
-                    <div class="button-row">
+                    <h3 id="quickActionsTitle">Quick Actions</h3>
+                    <div class="button-row" id="playerActionRow">
                         <button id="undoBtn" onclick="undoMove()" aria-label="Undo last two moves">Undo Move</button>
                         <button id="hintBtn" onclick="getHint()" aria-label="Get AI hint for best move">Get Hint</button>
+                    </div>
+                    <button id="quickAutoBattleBtn" class="auto-battle-btn" onclick="startInstantAutoBattle()" aria-label="Start instant AI vs AI auto-battle">⚡ Watch AI Auto-Battle</button>
+                    <div class="button-row" id="watchActionRow" style="display: none;">
+                        <button id="watchPauseBtn" onclick="toggleWatchPause()" aria-label="Pause or resume AI vs AI match">Pause</button>
+                        <button onclick="restartCurrentGame()" aria-label="Instant AI vs AI rematch">⚡ Rematch</button>
                     </div>
                     <div class="hint-text" id="hintText" style="display: none;"></div>
                 </div>
@@ -161,10 +173,12 @@
                         <div class="captured-row">
                             <strong>By White:</strong>
                             <div class="captured-pieces" id="whiteCaptured"></div>
+                            <span class="material-advantage" id="whiteAdvantage"></span>
                         </div>
                         <div class="captured-row">
                             <strong>By Black:</strong>
                             <div class="captured-pieces" id="blackCaptured"></div>
+                            <span class="material-advantage" id="blackAdvantage"></span>
                         </div>
                     </div>
                     <button class="mobile-new-game-btn" onclick="showNewGameDialog()" aria-label="Start a new game">New Game</button>
@@ -180,9 +194,9 @@
 
             <div class="panel">
                 <h2>Game Status</h2>
-                <div class="game-info" id="gameInfo">Player vs AI (Easy)</div>
+                <div class="game-info" id="gameInfo" onclick="showNewGameDialog()" title="Click to change mode or AI matchup">Player vs AI (Medium)</div>
                 <div class="status" id="status">White's Turn</div>
-                <div class="move-counter" id="moveCounter">Move: 1</div>
+                <div class="move-counter" id="moveCounter">Move 1</div>
                 <div class="ai-thinking" id="aiThinking">
                     <div class="ai-thinking-spinner"></div>
                     <div class="ai-thinking-text" id="aiThinkingText">AI is thinking...</div>

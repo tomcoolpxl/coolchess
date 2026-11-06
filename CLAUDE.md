@@ -5,17 +5,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 This is a browser-based chess game with separate HTML, CSS, and JavaScript files. The game features:
-- Full chess rules implementation (castling, en passant, pawn promotion, 50-move rule, threefold repetition)
-- AI opponent using minimax with alpha-beta pruning, transposition tables, and move ordering
-- Two game modes: Player vs AI, AI vs AI (watch mode)
+- Full chess rules implementation (castling, en passant, pawn promotion, 50-move rule, threefold repetition, insufficient material draw)
+- AI opponent using minimax with alpha-beta pruning, quiescence search, 64-bit Zobrist transposition tables, and multi-stage move ordering (TT PV, promotions, MVV-LVA, Killer Moves, History Heuristic)
+- Two game modes: Player vs AI, AI vs AI (watch mode with Pause/Resume control)
 - Unified New Game dialog for mode and difficulty selection
-- Position evaluation with visual evaluation bar
+- Tapered position evaluation (Middlegame/Endgame King interpolation + bishop pair + mobility) with visual evaluation bar
 - AI statistics display (positions evaluated per move and total)
-- Opening book for common opening moves (11 pre-programmed moves)
+- Expanded opening book for common master opening lines across moves 1–3
 - Info dialog explaining how the AI works (includes tribute to Maurits Cool)
-- Smart undo that reverts 2 moves (opponent + yours)
-- Hint feature with visual arrow showing suggested move
-- Zero AI delays for instant responsive gameplay
+- Smart undo that reverts to player's turn (and supports cancelling pending promotion)
+- Hint feature with visual arrow showing suggested move (without polluting AI evaluation counters)
+- Instant responsive gameplay
 
 ## Running the Application
 
@@ -171,10 +171,11 @@ In AI vs AI mode, White and Black can have different difficulties.
 
 ### Opening Book
 
-The opening book contains 11 pre-programmed moves that randomize for variety:
-- White's first move: 4 options (e4, d4, c4 [English Opening], Nf3)
-- Black's response to e4: 4 options (e5, c5, e6, c6)
-- Black's response to d4: 3 options (d5, Nf6, f6)
+The opening book contains pre-programmed master opening moves across the first 2–3 moves that randomize for variety:
+- White's first move: 4 options (1. e4, 1. d4, 1. c4 [English Opening], 1. Nf3 [Réti Opening])
+- Black's response to 1. e4: 4 options (e5, c5 [Sicilian], e6 [French], c6 [Caro-Kann])
+- Black's response to 1. d4: 3 options (d5, Nf6 [Indian], f5 [Dutch Defense])
+- Black's response to 1. c4 & 1. Nf3: e5, c5, d5, Nf6 plus main-line 2nd-move continuations
 
 ### AI Optimizations
 
